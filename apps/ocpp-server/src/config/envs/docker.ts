@@ -151,6 +151,14 @@ export function createDockerConfig() {
         responses: [],
         requests: [],
       },
+      wirelane: {
+        endpointPrefix: '/wirelane',
+        responses: [],
+        requests: [OCPP_CallAction.BootNotification],
+        ocppAdapterBaseUrl: 'http://ocppAdapter.services.wirelane-staging.internal',
+        ocppAdapterWebhookUrl:
+          'http://ocppAdapter.services.wirelane-staging.internal/webhook/citrineos',
+      },
       transactions: {
         endpointPrefix: '/transactions',
         costUpdatedInterval: 60,

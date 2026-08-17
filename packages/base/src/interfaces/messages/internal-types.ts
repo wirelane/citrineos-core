@@ -33,6 +33,7 @@ export enum EventGroup {
   Reporting = 'reporting',
   SmartCharging = 'smartcharging',
   Tenant = 'tenant',
+  Wirelane = 'wirelane',
   Transactions = 'transactions',
   Cdrs = 'cdrs',
   ChargingProfiles = 'chargingprofiles',
