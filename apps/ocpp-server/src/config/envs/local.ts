@@ -156,7 +156,7 @@ export function createLocalConfig() {
       wirelane: {
         endpointPrefix: '/wirelane',
         responses: [],
-        requests: [OCPP_CallAction.BootNotification],
+        requests: [],
         ocppAdapterBaseUrl: 'http://localhost:11999',
         ocppAdapterWebhookUrl: 'http://localhost:11999/webhook/citrineos',
       },

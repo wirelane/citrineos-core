@@ -5,6 +5,9 @@
 /**
  * Wirelane integration module.
  *
- * Observes BootNotification to auto-discover stations and sets up subscription webhooks to ocpp-adapter.
+ * Station discovery and the ocpp-adapter webhook subscription live on
+ * WebhookDispatcher (created at websocket connect). This module is the
+ * home for future custom Authorize (and related) handlers that call
+ * ocpp-adapter; it currently starts with an empty action list.
  */
 export { WirelaneIntegrationModule } from './module/module.js';

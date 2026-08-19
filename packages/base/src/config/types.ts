@@ -173,11 +173,11 @@ export const systemConfigInputSchema = z.object({
         endpointPrefix: z.string().default(EventGroup.Wirelane).optional(),
         host: z.string().default('localhost').optional(),
         port: z.number().int().min(1).default(8081).optional(),
-        requests: z.array(CallActionSchema),
-        responses: z.array(CallActionSchema),
-        /** Base URL of ocpp-adapter (discovery + future Authorize). */
-        ocppAdapterBaseUrl: z.string(),
-        /** Webhook URL CitrineOS Subscription callbacks POST to. */
+        requests: z.array(CallActionSchema).default([]),
+        responses: z.array(CallActionSchema).default([]),
+        /** Base URL of ocpp-adapter. Reserved for future Authorize (and similar) HTTP calls. */
+        ocppAdapterBaseUrl: z.string().optional(),
+        /** Webhook URL CitrineOS Subscription callbacks POST to (ocpp-adapter). */
         ocppAdapterWebhookUrl: z.string(),
       })
       .optional(),
@@ -497,7 +497,7 @@ export const systemConfigSchema = z
           port: z.number().int().min(1).optional(),
           requests: z.array(CallActionSchema),
           responses: z.array(CallActionSchema),
-          ocppAdapterBaseUrl: z.string(),
+          ocppAdapterBaseUrl: z.string().optional(),
           ocppAdapterWebhookUrl: z.string(),
         })
         .optional(),

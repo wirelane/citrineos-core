@@ -130,11 +130,6 @@ export class CitrineOSServer {
       routeApis: ['tenantDataApi'],
       configKey: 'tenant',
     },
-    [EventGroup.Wirelane]: {
-      moduleToken: 'wirelaneIntegrationModule',
-      routeApis: [],
-      configKey: 'wirelane',
-    },
   };
 
   // todo rename event group to type

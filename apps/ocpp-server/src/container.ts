@@ -91,7 +91,6 @@ import {
   SmartChargingModule,
   TransactionsModule,
   TenantModule,
-  WirelaneIntegrationModule,
 } from '@citrineos/core';
 
 // -- Module-internal services (registered by each module package's own registrar) --
@@ -386,7 +385,6 @@ function registerModules(container: AwilixContainer): void {
     smartChargingModule: asClass(SmartChargingModule).scoped(),
     transactionsModule: asClass(TransactionsModule).scoped(),
     tenantModule: asClass(TenantModule).scoped(),
-    wirelaneIntegrationModule: asClass(WirelaneIntegrationModule).scoped(),
   });
 }
 

@@ -43,6 +43,7 @@ describe('WebhookDispatcher', () => {
 
     subscriptionRepository = {
       readAllByStationId: vi.fn(),
+      create: vi.fn(),
     } as unknown as Mocked<ISubscriptionRepository>;
 
     createOCPPMessage = vi
@@ -70,6 +71,7 @@ describe('WebhookDispatcher', () => {
   afterEach(() => {
     fetch.mockClear();
     subscriptionRepository.readAllByStationId.mockReset();
+    subscriptionRepository.create.mockReset();
     vi.clearAllTimers();
   });
 
@@ -112,6 +114,85 @@ describe('WebhookDispatcher', () => {
       await webhookDispatcher.register(subscription.tenantId, subscription.ocppConnectionName);
 
       expect(fetch).not.toHaveBeenCalled();
+    });
+
+    describe('Wirelane adapter subscription', () => {
+      const WEBHOOK_URL = 'http://ocpp-adapter.internal/webhook/citrineos';
+
+      function dispatcherWithWirelaneWebhook() {
+        return getTestInstance(container, WebhookDispatcher, {
+          ocppMessageRepository,
+          subscriptionRepository,
+          cache,
+          config: {
+            modules: {
+              wirelane: {
+                ocppAdapterWebhookUrl: WEBHOOK_URL,
+              },
+            },
+          } as any,
+        });
+      }
+
+      it('should create the subscription before loading callbacks so BootNotification is forwarded', async () => {
+        const created = aSubscription({
+          tenantId: DEFAULT_TENANT_ID,
+          ocppConnectionName: 'TEST001',
+          url: WEBHOOK_URL,
+          onConnect: true,
+          onClose: true,
+          onMessage: true,
+          sentMessage: false,
+          messageRegexFilter: 'BootNotification|StatusNotification',
+        });
+        subscriptionRepository.readAllByStationId
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([created]);
+        subscriptionRepository.create.mockResolvedValue(created);
+
+        const dispatcher = dispatcherWithWirelaneWebhook();
+        await dispatcher.register(DEFAULT_TENANT_ID, 'TEST001');
+
+        expect(subscriptionRepository.create).toHaveBeenCalledTimes(1);
+        expect(subscriptionRepository.create).toHaveBeenCalledWith(
+          DEFAULT_TENANT_ID,
+          expect.objectContaining({
+            ocppConnectionName: 'TEST001',
+            url: WEBHOOK_URL,
+            onConnect: true,
+            onClose: true,
+            onMessage: true,
+            sentMessage: false,
+            messageRegexFilter: 'BootNotification|StatusNotification',
+          }),
+        );
+        expect(fetch).toHaveBeenCalledWith(WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ocppConnectionName: 'TEST001',
+            event: 'connected',
+          }),
+        });
+      });
+
+      it('should not create a duplicate subscription when the webhook already exists', async () => {
+        const existing = aSubscription({
+          tenantId: DEFAULT_TENANT_ID,
+          ocppConnectionName: 'TEST001',
+          url: WEBHOOK_URL,
+          onConnect: false,
+        });
+        givenSubscriptions(existing);
+
+        const dispatcher = dispatcherWithWirelaneWebhook();
+        await dispatcher.register(DEFAULT_TENANT_ID, 'TEST001');
+
+        expect(subscriptionRepository.create).not.toHaveBeenCalled();
+        expect(fetch).not.toHaveBeenCalled();
+      });
     });
   });
 
