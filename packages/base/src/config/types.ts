@@ -175,9 +175,9 @@ export const systemConfigInputSchema = z.object({
         port: z.number().int().min(1).default(8081).optional(),
         requests: z.array(CallActionSchema).default([]),
         responses: z.array(CallActionSchema).default([]),
-        /** Base URL of ocpp-adapter. Reserved for future Authorize (and similar) HTTP calls. */
+        /** Base URL of ocpp-adapter. Used for the BootNotification discovery POST. */
         ocppAdapterBaseUrl: z.string().optional(),
-        /** Webhook URL CitrineOS Subscription callbacks POST to (ocpp-adapter). */
+        /** Callback URL ocpp-adapter registers via the Data API (informational). */
         ocppAdapterWebhookUrl: z.string(),
       })
       .optional(),

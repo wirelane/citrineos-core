@@ -183,9 +183,7 @@ export abstract class AbstractModule implements IModule {
     }
     try {
       const handlerDefinition = (
-        (Reflect.getMetadata(AS_HANDLER_METADATA, this.constructor) as
-          | Array<IHandlerDefinition>
-          | undefined) ?? []
+        Reflect.getMetadata(AS_HANDLER_METADATA, this.constructor) as Array<IHandlerDefinition>
       )
         .filter((h) => h.protocol === message.protocol && h.action === message.action)
         .pop();

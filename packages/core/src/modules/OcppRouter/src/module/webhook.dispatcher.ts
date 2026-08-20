@@ -35,7 +35,6 @@ export class WebhookDispatcher {
 
   protected _cache: ICache;
   protected readonly _oidcTokenProvider?: OidcTokenProvider;
-  protected readonly _wirelaneWebhookUrl?: string;
   protected _identifiers: Set<string> = new Set();
 
   // Structure of the maps: key = identifier, value = array of callbacks
@@ -68,8 +67,6 @@ export class WebhookDispatcher {
       this._oidcTokenProvider = new OidcTokenProvider(config.oidcClient, this._logger);
     }
 
-    this._wirelaneWebhookUrl = config?.modules?.wirelane?.ocppAdapterWebhookUrl;
-
     setInterval(async () => {
       await this._refreshSubscriptions();
     }, WebhookDispatcher.SUBSCRIPTION_REFRESH_INTERVAL_MS);
@@ -78,7 +75,6 @@ export class WebhookDispatcher {
   async register(tenantId: number, ocppConnectionName: string) {
     const identifier = createIdentifier(tenantId, ocppConnectionName);
     try {
-      await this._ensureWirelaneSubscription(tenantId, ocppConnectionName);
       await this._loadSubscriptionsForConnection(tenantId, ocppConnectionName);
       await Promise.all(
         this._onConnectionCallbacks.get(identifier)?.map((callback) => callback()) ?? [],
@@ -87,6 +83,23 @@ export class WebhookDispatcher {
     } catch (error) {
       this._logger.error(`Failed to register ${identifier}`, error);
     }
+  }
+
+  /**
+   * Reloads live webhook callbacks for a connected station from the database.
+   * `POST /data/ocpprouter/subscription` only inserts a row; without this the
+   * in-memory maps stay empty until reconnect or the 3-minute refresh.
+   */
+  async reloadSubscriptions(tenantId: number, ocppConnectionName: string): Promise<void> {
+    const identifier = createIdentifier(tenantId, ocppConnectionName);
+    if (!this._identifiers.has(identifier)) {
+      return;
+    }
+
+    await this._loadSubscriptionsForConnection(tenantId, ocppConnectionName);
+    await Promise.all(
+      this._onConnectionCallbacks.get(identifier)?.map((callback) => callback()) ?? [],
+    );
   }
 
   async deregister(tenantId: number, ocppConnectionName: string) {
@@ -309,51 +322,6 @@ export class WebhookDispatcher {
         getStationIdFromIdentifier(identifier),
       ),
     );
-  }
-
-  /**
-   * Upsert the ocpp-adapter webhook so BootNotification and StatusNotification
-   * on this session are forwarded. Must run before callbacks are loaded.
-   */
-  protected async _ensureWirelaneSubscription(
-    tenantId: number,
-    ocppConnectionName: string,
-  ): Promise<void> {
-    const webhookUrl = this._wirelaneWebhookUrl;
-    if (!webhookUrl) {
-      return;
-    }
-
-    try {
-      const existing = await this._subscriptionRepository.readAllByStationId(
-        tenantId,
-        ocppConnectionName,
-      );
-      if (existing.some((subscription) => subscription.url === webhookUrl)) {
-        return;
-      }
-
-      await this._subscriptionRepository.create(tenantId, {
-        ocppConnectionName,
-        url: webhookUrl,
-        onConnect: true,
-        onClose: true,
-        onMessage: true,
-        sentMessage: false,
-        messageRegexFilter: 'BootNotification|StatusNotification',
-      } as Subscription);
-
-      this._logger.info('Created Wirelane ocpp-adapter subscription', {
-        ocppConnectionName,
-        webhookUrl,
-      });
-    } catch (error) {
-      this._logger.error('Failed to ensure Wirelane ocpp-adapter subscription', {
-        ocppConnectionName,
-        webhookUrl,
-        error,
-      });
-    }
   }
 
   /**

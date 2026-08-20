@@ -173,7 +173,7 @@ export function createDockerConfig() {
         host: '0.0.0.0',
         port: 8091,
         responses: [],
-        requests: [],
+        requests: [OCPP_CallAction.BootNotification],
         ocppAdapterBaseUrl: 'http://localhost:11999',
         ocppAdapterWebhookUrl: 'http://localhost:11999/webhook/citrineos',
       },

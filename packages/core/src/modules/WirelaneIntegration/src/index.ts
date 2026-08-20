@@ -5,9 +5,10 @@
 /**
  * Wirelane integration module.
  *
- * Station discovery and the ocpp-adapter webhook subscription live on
- * WebhookDispatcher (created at websocket connect). This module is the
- * home for future custom Authorize (and related) handlers that call
- * ocpp-adapter; it currently starts with an empty action list.
+ * Observe-only BootNotification handler that POSTs station identity to
+ * ocpp-adapter over HTTP. The adapter then subscribes via the CitrineOS
+ * Data API; this module reloads live subscription maps afterwards so
+ * StatusNotification on the first websocket is forwarded.
  */
 export { WirelaneIntegrationModule } from './module/module.js';
+export type { WirelaneIntegrationModuleDependencies } from './module/module.js';
