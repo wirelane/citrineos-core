@@ -85,6 +85,23 @@ export class WebhookDispatcher {
     }
   }
 
+  /**
+   * Reloads live webhook callbacks for a connected station from the database.
+   * `POST /data/ocpprouter/subscription` only inserts a row; without this the
+   * in-memory maps stay empty until reconnect or the 3-minute refresh.
+   */
+  async reloadSubscriptions(tenantId: number, ocppConnectionName: string): Promise<void> {
+    const identifier = createIdentifier(tenantId, ocppConnectionName);
+    if (!this._identifiers.has(identifier)) {
+      return;
+    }
+
+    await this._loadSubscriptionsForConnection(tenantId, ocppConnectionName);
+    await Promise.all(
+      this._onConnectionCallbacks.get(identifier)?.map((callback) => callback()) ?? [],
+    );
+  }
+
   async deregister(tenantId: number, ocppConnectionName: string) {
     const identifier = createIdentifier(tenantId, ocppConnectionName);
     try {

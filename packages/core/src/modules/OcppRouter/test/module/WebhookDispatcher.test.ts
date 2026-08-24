@@ -832,6 +832,55 @@ describe('WebhookDispatcher', () => {
     });
   });
 
+  describe('reloadSubscriptions', () => {
+    it('should load newly created subscriptions for a live connection and fire onConnect', async () => {
+      const withoutWebhook = aSubscription({ onConnect: false, onMessage: false });
+      givenSubscriptions(withoutWebhook);
+      await givenRegisteredStations(withoutWebhook.ocppConnectionName);
+
+      const withWebhook = aSubscription({
+        ocppConnectionName: withoutWebhook.ocppConnectionName,
+        tenantId: withoutWebhook.tenantId,
+        onConnect: true,
+        onMessage: true,
+      });
+      givenSubscriptions(withWebhook);
+
+      await webhookDispatcher.reloadSubscriptions(
+        withWebhook.tenantId,
+        withWebhook.ocppConnectionName,
+      );
+
+      expect(subscriptionRepository.readAllByStationId).toHaveBeenCalledWith(
+        withWebhook.tenantId,
+        withWebhook.ocppConnectionName,
+      );
+      expect(fetch).toHaveBeenCalledWith(withWebhook.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ocppConnectionName: withWebhook.ocppConnectionName,
+          event: 'connected',
+        }),
+      });
+    });
+
+    it('should not load subscriptions for a station that is not registered', async () => {
+      const subscription = aSubscription({ onConnect: true });
+      givenSubscriptions(subscription);
+
+      await webhookDispatcher.reloadSubscriptions(
+        subscription.tenantId,
+        subscription.ocppConnectionName,
+      );
+
+      expect(subscriptionRepository.readAllByStationId).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
   function givenSubscriptions(...subscriptions: Subscription[]) {
     subscriptionRepository.readAllByStationId.mockResolvedValue(subscriptions);
   }

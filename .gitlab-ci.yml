@@ -18,19 +18,27 @@ variables:
   RELEASE_BRANCH: main
   DOCKERFILE: ./apps/ocpp-server/deploy.Dockerfile
 
-# Allow manual staging deploys from any mirrored branch without MR on GitLab.
+# GitHub is the source of truth (pull mirror) so we should not rely on GitLab MRs.
+.github-mirror-staging-rules: &github-mirror-staging-rules
+  - if: '$CI_COMMIT_BRANCH =~ /^(feature|bugfix)\// && $AWS_DEFAULT_REGION && $STAGING_AWS_ACCOUNT_ID && $STAGING_AWS_ECR_REPOSITORY_NAME && $STAGING_AWS_DEPLOYMENT_ROLE_ARN && $STAGING_AWS_DEPLOYMENT_LAMBDA_FUNCTION_NAME'
+    variables:
+      DEPLOYMENT_VERSION_URL: ${CI_PROJECT_URL}/-/commit/${CI_COMMIT_SHA}
+    when: manual
+    allow_failure: true
+
+announce-deployment-build-aws-staging:
+  rules: *github-mirror-staging-rules
+
 push-build-aws-staging:
   rules:
-    - if: '$AWS_DEFAULT_REGION && $STAGING_AWS_ACCOUNT_ID && $STAGING_AWS_ECR_REPOSITORY_NAME && $STAGING_AWS_DEPLOYMENT_ROLE_ARN && ($STAGING_AWS_DEPLOYMENT_LAMBDA_FUNCTION_NAME == null || $AWS_USE_FIXED_DEPLOYMENT_TAG)'
+    - if: '$CI_COMMIT_BRANCH =~ /^(feature|bugfix)\// && $AWS_DEFAULT_REGION && $STAGING_AWS_ACCOUNT_ID && $STAGING_AWS_ECR_REPOSITORY_NAME && $STAGING_AWS_DEPLOYMENT_ROLE_ARN && ($STAGING_AWS_DEPLOYMENT_LAMBDA_FUNCTION_NAME == null || $AWS_USE_FIXED_DEPLOYMENT_TAG)'
       variables:
         DEPLOYMENT_VERSION_URL: ${CI_PROJECT_URL}/-/commit/${CI_COMMIT_SHA}
       when: manual
       allow_failure: true
 
 deploy-build-aws-staging:
-  rules:
-    - if: '$AWS_DEFAULT_REGION && $STAGING_AWS_ACCOUNT_ID && $STAGING_AWS_ECR_REPOSITORY_NAME && $STAGING_AWS_DEPLOYMENT_ROLE_ARN && $STAGING_AWS_DEPLOYMENT_LAMBDA_FUNCTION_NAME'
-      variables:
-        DEPLOYMENT_VERSION_URL: ${CI_PROJECT_URL}/-/commit/${CI_COMMIT_SHA}
-      when: manual
-      allow_failure: true
+  rules: *github-mirror-staging-rules
+
+quick-deploy-build-aws-staging:
+  rules: *github-mirror-staging-rules
