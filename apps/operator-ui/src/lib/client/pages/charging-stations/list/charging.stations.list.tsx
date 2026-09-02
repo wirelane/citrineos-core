@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 'use client';
 
-import { type ChargingStationDto, ChargingStationProps } from '@citrineos/base';
+import { type ChargingStationDto, ChargingStationProps } from '@citrineos/types';
 import { MenuSection } from '@lib/client/components/main-menu/main.menu';
 import { Table } from '@lib/client/components/table';
 import { Button } from '@lib/client/components/ui/button';
@@ -31,12 +31,17 @@ import { buttonIconSize } from '@lib/client/styles/icon';
 import { DebounceSearch } from '@lib/client/components/debounce-search';
 import { useColumnPreferences } from '@lib/client/hooks/useColumnPreferences';
 import { useTableFilters } from '@lib/client/hooks/useTableFilters';
+import { usePreview } from '@lib/client/hooks/usePreview';
 
 export const ChargingStationsList = () => {
   const { push } = useRouter();
   const translate = useTranslate();
 
   const [searchFilters, setSearchFilters] = useState<any>(EMPTY_FILTER);
+  const { openPreview } = usePreview();
+  const handleRowClick = (station: { ocppConnectionName?: string | null }) => {
+    if (station.ocppConnectionName) openPreview(station.ocppConnectionName);
+  };
 
   const { renderedVisibleColumns, columnSelector } = useColumnPreferences(
     getChargingStationsColumns(true, translate),
@@ -99,6 +104,7 @@ export const ChargingStationsList = () => {
           enableSorting
           enableFilters
           showHeader
+          onRowClick={handleRowClick}
           tableStateKey={ResourceType.CHARGING_STATIONS}
         >
           {renderedVisibleColumns}

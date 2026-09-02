@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import type {
-  AuthorizationDto,
-  AuthorizationStatusEnumType,
-  AuthorizationWhitelistEnumType,
-  IdTokenEnumType,
-} from '@citrineos/base';
 import {
+  type AuthorizationDto,
+  type AuthorizationStatusEnumType,
+  type AuthorizationWhitelistEnumType,
+  type IdTokenEnumType,
   AuthorizationStatusEnum,
   AuthorizationWhitelistEnum,
   IdTokenEnum,
   OCPP2_0_1,
-} from '@citrineos/base';
+} from '@citrineos/types';
+import { Container } from 'typedi';
+import { Logger } from 'tslog';
 import type { TokenDTO } from '../model/DTO/TokenDTO.js';
 import { TokenType } from '../model/TokenType.js';
 import { WhitelistType } from '../model/WhitelistType.js';
@@ -71,8 +71,14 @@ export class TokensMapper {
         return TokenType.APP_USER;
       case null:
         return TokenType.OTHER;
-      default:
-        throw new Error(`Unknown token type: ${type}`);
+      default: {
+        // OCPI has only 4 token types; every other OCPP idTokenType (Other, eMAID, ISO15693,
+        // KeyCode, MacAddress) maps to OTHER rather than throwing.
+        Container.get(Logger).warn(
+          `Unmapped OCPP idToken type "${type}"; defaulting to OCPI TokenType.OTHER`,
+        );
+        return TokenType.OTHER;
+      }
     }
   }
 

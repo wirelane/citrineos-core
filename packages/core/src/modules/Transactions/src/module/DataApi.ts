@@ -17,11 +17,11 @@ import { TransactionsModule } from './module.js';
 import {
   AbstractModuleApi,
   AsDataEndpoint,
-  HttpMethod,
   Namespace,
   OCPP1_6_Namespace,
   OCPP2_Namespace,
 } from '@citrineos/base';
+import { HttpMethod } from '@citrineos/types';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { UpsertTariffRequest } from './model/tariffs.js';
 import { plainToInstance } from 'class-transformer';
@@ -87,8 +87,7 @@ export class TransactionsDataApi
     return this._module.tariffRepository
       .deleteAllByQuerystring(request.query.tenantId, request.query)
       .then(
-        (deletedCount: { toString: () => string }) =>
-          deletedCount.toString() + ' rows successfully deleted from ' + OCPP2_Namespace.Tariff,
+        (deleted) => `${deleted.length} rows successfully deleted from ${OCPP2_Namespace.Tariff}`,
       );
   }
 

@@ -6,6 +6,8 @@ import { type IAuthorizationRepository } from '../../../interfaces/repositories.
 import { type AuthorizationQuerystring } from '../../../interfaces/queries/Authorization.js';
 import { Authorization } from '../model/Authorization/Authorization.js';
 import { SequelizeRepository, type SequelizeRepositoryDependencies } from './Base.js';
+import { Op } from 'sequelize';
+import { Tariff } from '@/dal/index.js';
 
 export class SequelizeAuthorizationRepository
   extends SequelizeRepository<Authorization>
@@ -29,6 +31,22 @@ export class SequelizeAuthorizationRepository
     return await super.readOnlyOneByQuery(tenantId, this._constructQuery(query));
   }
 
+  async findAllAuthorizationsWithTariffs(tenantId: number): Promise<Authorization[]> {
+    return await super.readAllByQuery(tenantId, {
+      where: {
+        tenantId,
+        tariffId: { [Op.ne]: null },
+      },
+      include: [
+        {
+          model: Tariff,
+          as: 'tariff',
+          required: true,
+        },
+      ],
+    });
+  }
+
   /**
    * Private Methods
    */
@@ -43,8 +61,14 @@ export class SequelizeAuthorizationRepository
       where.idTokenType = queryParams.type;
     }
 
+    if (queryParams.id) {
+      where.id = queryParams.id;
+    }
+
     return {
       where,
+      // Eager-load the group Authorization so IdTokenInfo.groupIdToken can be surfaced.
+      include: [{ model: Authorization, as: 'groupAuthorization' }],
     };
   }
 }

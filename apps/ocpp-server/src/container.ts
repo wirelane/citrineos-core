@@ -2,34 +2,88 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import { asClass, asFunction, asValue, createContainer, InjectionMode } from 'awilix';
 import type { AwilixContainer } from 'awilix';
+import { asClass, asFunction, asValue, createContainer, InjectionMode } from 'awilix';
 import type { FastifyInstance } from 'fastify';
 
 // -- Config & Base --
-import type { BootstrapConfig, ICache, SystemConfig } from '@citrineos/base';
-import { ConfigStoreFactory, OCPPValidator } from '@citrineos/base';
+import {
+  type BootstrapConfig,
+  ConfigStoreFactory,
+  type IApiAuthProvider,
+  type ICache,
+  OcppSender,
+  OCPPValidator,
+} from '@citrineos/base';
+import { type SystemConfig } from '@citrineos/types';
 
 // -- Infrastructure --
-import { Logger, type ILogObj } from 'tslog';
+import { type ILogObj, Logger } from 'tslog';
 
 // -- DB --
-import { DefaultSequelizeInstance } from '@citrineos/core';
-
 // -- RabbitMQ --
-import {
-  RabbitMQConnectionManager,
-  RabbitMQChannelManager,
-  RabbitMqSender,
-  RabbitMqReceiver,
-  BrokerAwareMessageSender,
-} from '@citrineos/core';
-
 // -- Repositories --
+// -- Services --
+// -- API authentication --
+// -- Network Connection --
+// -- Modules --
+// -- Module-internal services (registered by each module package's own registrar) --
+// -- Module APIs --
+// -- Handlers --
+// -- Repositories --
+// -- Services --
+// -- Network Connection --
+// -- Modules --
+// -- Module-internal services (registered by each module package's own registrar) --
+// -- Module APIs --
 import {
-  Component,
+  AdminApi,
+  Authenticator,
+  BasicAuthenticationFilter,
+  BrokerAwareMessageSender,
+  CertificateAuthorityService,
+  CertificatesDataApi,
+  CertificatesModule,
+  CertificatesOcpp2Api,
+  ConfigurationDataApi,
+  ConfigurationModule,
+  ConfigurationOcpp16Api,
+  ConfigurationOcpp2Api,
+  ConnectedStationFilter,
+  DefaultDrizzleInstance,
+  DefaultSequelizeInstance,
   DrizzleSecurityEventRepository,
-  SequelizeRepository,
+  DrizzleServerNetworkProfileRepository,
+  DrizzleSubscriptionRepository,
+  DrizzleTenantRepository,
+  EVDriverDataApi,
+  EVDriverModule,
+  EVDriverOcpp16Api,
+  EVDriverOcpp2Api,
+  IdGenerator,
+  InternalSmartCharging,
+  LocalBypassAuthProvider,
+  MessageRouterImpl,
+  MonitoringDataApi,
+  MonitoringModule,
+  MonitoringOcpp2Api,
+  NetworkProfileFilter,
+  OIDCAuthProvider,
+  RabbitMQChannelManager,
+  RabbitMQConnectionManager,
+  RabbitMqReceiver,
+  RabbitMqSender,
+  RealTimeAuthorizer,
+  registerCertificatesServices,
+  registerConfigurationServices,
+  registerEVDriverServices,
+  registerMonitoringServices,
+  registerReportingServices,
+  registerSmartChargingServices,
+  registerTransactionsServices,
+  ReportingModule,
+  ReportingOcpp16Api,
+  ReportingOcpp2Api,
   SequelizeAsyncJobStatusRepository,
   SequelizeAuthorizationRepository,
   SequelizeBootRepository,
@@ -38,6 +92,7 @@ import {
   SequelizeChargingProfileRepository,
   SequelizeChargingStationSecurityInfoRepository,
   SequelizeChargingStationSequenceRepository,
+  SequelizeComponentRepository,
   SequelizeDeleteCertificateAttemptRepository,
   SequelizeDeviceModelRepository,
   SequelizeInstallCertificateAttemptRepository,
@@ -54,76 +109,20 @@ import {
   SequelizeTenantRepository,
   SequelizeTransactionEventRepository,
   SequelizeVariableMonitoringRepository,
-} from '@citrineos/core';
-
-// -- Services --
-import {
-  CertificateAuthorityService,
-  InternalSmartCharging,
-  RealTimeAuthorizer,
-  IdGenerator,
-} from '@citrineos/core';
-
-// -- API authentication --
-import { LocalBypassAuthProvider, OIDCAuthProvider } from '@citrineos/core';
-import type { IApiAuthProvider } from '@citrineos/base';
-
-// -- Network Connection --
-import {
-  Authenticator,
-  UnknownStationFilter,
-  ConnectedStationFilter,
-  NetworkProfileFilter,
-  BasicAuthenticationFilter,
-  MessageRouterImpl,
-  WebsocketNetworkConnection,
-  WebhookDispatcher,
-  AdminApi,
-} from '@citrineos/core';
-
-// -- Modules --
-import {
-  CertificatesModule,
-  ConfigurationModule,
-  EVDriverModule,
-  MonitoringModule,
-  ReportingModule,
   SmartChargingModule,
-  TransactionsModule,
+  SmartChargingOcpp16Api,
+  SmartChargingOcpp2Api,
+  TenantDataApi,
   TenantModule,
+  TransactionsDataApi,
+  TransactionsModule,
+  TransactionsOcpp2Api,
+  UnknownStationFilter,
+  WebhookDispatcher,
+  WebsocketNetworkConnection,
   WirelaneIntegrationModule,
 } from '@citrineos/core';
-
-// -- Module-internal services (registered by each module package's own registrar) --
-import {
-  registerCertificatesServices,
-  registerConfigurationServices,
-  registerEVDriverServices,
-  registerMonitoringServices,
-  registerReportingServices,
-  registerTransactionsServices,
-} from '@citrineos/core';
-
-// -- Module APIs --
-import {
-  CertificatesOcpp2Api,
-  CertificatesDataApi,
-  ConfigurationOcpp2Api,
-  ConfigurationOcpp16Api,
-  ConfigurationDataApi,
-  EVDriverOcpp2Api,
-  EVDriverOcpp16Api,
-  EVDriverDataApi,
-  MonitoringOcpp2Api,
-  MonitoringDataApi,
-  ReportingOcpp2Api,
-  ReportingOcpp16Api,
-  SmartChargingOcpp2Api,
-  SmartChargingOcpp16Api,
-  TransactionsOcpp2Api,
-  TransactionsDataApi,
-  TenantDataApi,
-} from '@citrineos/core';
+import { DrizzleAuthorizationRepository } from '@citrineos/core/dist/src/dal/layers/drizzle/index.js';
 
 type Prebuilt = {
   logger: Logger<ILogObj>;
@@ -167,6 +166,7 @@ export function buildContainer(config: BootstrapConfig & SystemConfig, prebuilt:
   registerNetwork(container);
   registerModules(container);
   registerModuleApis(container);
+  registerHandlers(container);
 
   return container;
 }
@@ -183,6 +183,7 @@ function registerModuleServices(container: AwilixContainer): void {
   registerEVDriverServices(container);
   registerMonitoringServices(container);
   registerReportingServices(container);
+  registerSmartChargingServices(container);
   registerTransactionsServices(container);
 }
 
@@ -204,8 +205,6 @@ function registerPrimitives(
     amqpUrl: asValue(config.util.messageBroker.amqp!.url),
     maxCallLengthSeconds: asValue(config.maxCallLengthSeconds),
     maxReconnectDelay: asValue(config.maxReconnectDelay),
-    // Consumed by CertificatesDataApi for certificate-chain generation.
-    websocketServersConfig: asValue(config.util.networkConnection.websocketServers),
     logger: asValue(logger),
     ocppValidator: asValue(ocppValidator),
     cache: asValue(cache),
@@ -265,8 +264,9 @@ function registerMessaging(container: AwilixContainer): void {
 
 // ============================================================
 // Repositories — all singletons, registered from @citrineos/core named exports.
-// Each class uses a proxy constructor
-// Drizzle security event overrides securityEventRepository.
+// Every repository class takes a single destructured dependency object, which is
+// what PROXY injection hands it, so all of them register with asClass.
+// The Drizzle repositories override their Sequelize counterparts when enabled.
 // ============================================================
 function registerRepositories(container: AwilixContainer): void {
   container.register({
@@ -302,17 +302,22 @@ function registerRepositories(container: AwilixContainer): void {
     tenantRepository: asClass(SequelizeTenantRepository).singleton(),
     transactionEventRepository: asClass(SequelizeTransactionEventRepository).singleton(),
     variableMonitoringRepository: asClass(SequelizeVariableMonitoringRepository).singleton(),
-    componentRepository: asFunction(
-      ({ config, logger }) =>
-        new SequelizeRepository<Component>({ config, namespace: Component.MODEL_NAME, logger }),
-    ).singleton(),
+    componentRepository: asClass(SequelizeComponentRepository).singleton(),
   });
 
-  if (process.env.CITRINEOS_USE_DRIZZLE_SECURITY_EVENT === 'true') {
+  if (process.env.CITRINEOS_USE_DRIZZLE === 'true') {
     container.register({
-      securityEventRepository: asFunction(
-        ({ config, logger }) => new DrizzleSecurityEventRepository(config, logger),
+      drizzleInstance: asFunction(({ config, logger }) =>
+        DefaultDrizzleInstance.getInstance(config, logger),
       ).singleton(),
+
+      useTenantSchema: asValue(false),
+
+      authorizationRepository: asClass(DrizzleAuthorizationRepository).singleton(),
+      securityEventRepository: asClass(DrizzleSecurityEventRepository).singleton(),
+      subscriptionRepository: asClass(DrizzleSubscriptionRepository).singleton(),
+      serverNetworkProfileRepository: asClass(DrizzleServerNetworkProfileRepository).singleton(),
+      tenantRepository: asClass(DrizzleTenantRepository).singleton(),
     });
   }
 }
@@ -412,5 +417,14 @@ function registerModuleApis(container: AwilixContainer): void {
     transactionsOcpp2Api: asClass(TransactionsOcpp2Api).scoped(),
     transactionsDataApi: asClass(TransactionsDataApi).scoped(),
     tenantDataApi: asClass(TenantDataApi).scoped(),
+  });
+}
+
+// ============================================================
+// Handlers — Resolved in the same per-module scope as their module
+// ============================================================
+function registerHandlers(container: AwilixContainer): void {
+  container.register({
+    ocppSender: asClass(OcppSender).scoped(),
   });
 }

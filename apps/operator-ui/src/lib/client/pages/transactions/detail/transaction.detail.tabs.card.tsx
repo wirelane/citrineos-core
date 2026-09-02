@@ -15,7 +15,7 @@ import {
   MeterValueProps,
   OCPP2_0_1,
   type TransactionDto,
-} from '@citrineos/base';
+} from '@citrineos/types';
 import { GET_AUTHORIZATIONS_BY_TRANSACTION } from '@lib/queries/authorizations';
 import { getPlainToInstanceOptions } from '@lib/utils/tables';
 import { pageFlex } from '@lib/client/styles/page';
@@ -74,6 +74,7 @@ export const TransactionDetailTabsCard = ({ transaction }: { transaction: Transa
   );
 
   const [tab, setTab] = useQueryState(DETAIL_TAB_STATE);
+  const [liveLogEnabled, setLiveLogEnabled] = useState(false);
 
   return (
     <Card>
@@ -203,8 +204,10 @@ export const TransactionDetailTabsCard = ({ transaction }: { transaction: Transa
                 initialEndDate={
                   transaction.endTime
                     ? new Date(new Date(transaction.endTime).getTime() + twoMinutesInMs)
-                    : new Date()
+                    : null
                 }
+                liveLogEnabled={liveLogEnabled}
+                onLiveLogEnabledChange={setLiveLogEnabled}
               />
             </CanAccess>
           </TabsContent>

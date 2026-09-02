@@ -20,13 +20,12 @@ import {
   AbstractModuleApi,
   AsDataEndpoint,
   DEFAULT_TENANT_ID,
-  HttpMethod,
   Namespace,
   OCPP1_6_Namespace,
-  OCPP2_0_1,
   OCPP2_Namespace,
   ReportDataTypeSchema,
 } from '@citrineos/base';
+import { HttpMethod, OCPP2_0_1 } from '@citrineos/types';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 /**
@@ -134,10 +133,8 @@ export class MonitoringDataApi
     return this._module.deviceModelRepository
       .deleteAllByQuerystring(tenantId, request.query)
       .then(
-        (deletedCount) =>
-          deletedCount.toString() +
-          ' rows successfully deleted from ' +
-          OCPP2_Namespace.VariableAttributeType,
+        (deleted) =>
+          `${deleted.length} rows successfully deleted from ${OCPP2_Namespace.VariableAttributeType}`,
       );
   }
 
