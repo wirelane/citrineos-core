@@ -81,6 +81,7 @@ import {
   registerReportingServices,
   registerSmartChargingServices,
   registerTransactionsServices,
+  registerWirelaneServices,
   ReportingModule,
   ReportingOcpp16Api,
   ReportingOcpp2Api,
@@ -185,6 +186,7 @@ function registerModuleServices(container: AwilixContainer): void {
   registerReportingServices(container);
   registerSmartChargingServices(container);
   registerTransactionsServices(container);
+  registerWirelaneServices(container);
 }
 
 // ============================================================

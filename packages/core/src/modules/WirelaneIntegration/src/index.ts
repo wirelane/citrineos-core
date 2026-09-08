@@ -12,3 +12,4 @@
  */
 export { WirelaneIntegrationModule } from './module/module.js';
 export type { WirelaneIntegrationModuleDependencies } from './module/module.js';
+export { registerWirelaneServices } from './register.js';

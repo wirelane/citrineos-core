@@ -189,6 +189,8 @@ export const systemConfigInputSchema = z.object({
         port: z.number().int().min(1).default(8081).optional(),
         requests: z.array(CallActionSchema).default([]),
         responses: z.array(CallActionSchema).default([]),
+        excludedRequests: z.array(CallActionSchema).optional(),
+        excludedResponses: z.array(CallActionSchema).optional(),
         /** Base URL of ocpp-adapter. Used for the BootNotification discovery POST. */
         ocppAdapterBaseUrl: z.string().optional(),
         /** Callback URL ocpp-adapter registers via the Data API (informational). */
@@ -525,6 +527,8 @@ export const systemConfigSchema = z
           port: z.number().int().min(1).optional(),
           requests: z.array(CallActionSchema),
           responses: z.array(CallActionSchema),
+          excludedRequests: z.array(CallActionSchema).optional(),
+          excludedResponses: z.array(CallActionSchema).optional(),
           ocppAdapterBaseUrl: z.string().optional(),
           ocppAdapterWebhookUrl: z.string(),
         })
