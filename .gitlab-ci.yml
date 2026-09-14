@@ -17,6 +17,7 @@ variables:
   DEVELOP_BRANCH: main
   RELEASE_BRANCH: main
   DOCKERFILE: ./apps/ocpp-server/deploy.Dockerfile
+  PUBLISH_TAG: $CI_COMMIT_TAG
 
 # GitHub is the source of truth (pull mirror) so we should not rely on GitLab MRs.
 .github-mirror-staging-rules: &github-mirror-staging-rules
