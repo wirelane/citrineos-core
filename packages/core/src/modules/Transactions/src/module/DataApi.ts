@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2025 Contributors to the CitrineOS Project
 //
 // SPDX-License-Identifier: Apache-2.0
+import type { ActiveTransactionQuerystring } from '@dal/interfaces/queries/ActiveTransaction.js';
 import type { TariffQueryString } from '@dal/interfaces/queries/Tariff.js';
 import type { TenantQueryString } from '@dal/interfaces/queries/Tenant.js';
 import type { TransactionEventQuerystring } from '@dal/interfaces/queries/TransactionEvent.js';
 import { Tariff } from '@dal/layers/sequelize/model/Tariff/index.js';
 import { Transaction } from '@dal/layers/sequelize/model/TransactionEvent/index.js';
+import { ActiveTransactionQuerySchema } from '@dal/interfaces/queries/ActiveTransaction.js';
 import { TariffQuerySchema } from '@dal/interfaces/queries/Tariff.js';
 import { TenantQuerySchema } from '@dal/interfaces/queries/Tenant.js';
 import { TransactionEventQuerySchema } from '@dal/interfaces/queries/TransactionEvent.js';
@@ -60,6 +62,25 @@ export class TransactionsDataApi
       request.query.tenantId,
       request.query.ocppConnectionName,
       request.query.transactionId,
+    );
+  }
+
+  /**
+   * Looks up the currently active transaction on a station's EVSE, for callers
+   * that need to trigger a stop but don't yet know CitrineOS's transactionId
+   * (e.g. an external RequestStopTransaction caller that only knows the
+   * station + EVSE it wants to stop). Deliberately a separate endpoint from
+   * getTransactionByStationIdAndTransactionId above rather than an extension
+   * of it, to keep this addition isolated from that existing method.
+   */
+  @AsDataEndpoint('ActiveTransaction' as Namespace, HttpMethod.Get, ActiveTransactionQuerySchema)
+  getActiveTransactionByStationIdAndEvseId(
+    request: FastifyRequest<{ Querystring: ActiveTransactionQuerystring }>,
+  ): Promise<Transaction | undefined> {
+    return this._module.transactionEventRepository.getActiveTransactionByStationIdAndEvseId(
+      request.query.tenantId,
+      request.query.ocppConnectionName,
+      request.query.evseId,
     );
   }
 
