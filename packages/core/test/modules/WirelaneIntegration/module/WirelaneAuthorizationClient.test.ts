@@ -97,6 +97,49 @@ describe('WirelaneAuthorizationClient', () => {
     });
   });
 
+  it('passes an RFC 3339 cacheExpiryDateTime with a numeric offset through', async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse(200, { status: 'Accepted', cacheExpiryDateTime: '2026-10-29T12:00:00.5+01:00' }),
+    );
+
+    await expect(createClient().authorize(REQUEST)).resolves.toEqual({
+      status: 'Accepted',
+      cacheExpiryDateTime: '2026-10-29T12:00:00.5+01:00',
+    });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '2026-10-29 12:00:00',
+    '2026-10-29T12:00:00',
+    '2026-10-29',
+    '2026-13-45T25:00:00Z',
+    'soon',
+    '',
+  ])(
+    'drops the invalid cacheExpiryDateTime %j but keeps the status',
+    async (cacheExpiryDateTime) => {
+      fetch.mockResolvedValueOnce(jsonResponse(200, { status: 'Accepted', cacheExpiryDateTime }));
+
+      await expect(createClient().authorize(REQUEST)).resolves.toEqual({ status: 'Accepted' });
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('truncates a long adapter error body in the log', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.reject(new Error('unused')),
+      text: () => Promise.resolve('x'.repeat(10_000)),
+    });
+
+    await expect(createClient().authorize(REQUEST)).resolves.toEqual({ status: 'Invalid' });
+    const { errorText } = logger.error.mock.calls[0][1];
+    expect(errorText.length).toBeLessThan(600);
+    expect(errorText).toContain('10000 characters');
+  });
+
   it('returns Invalid from the adapter as Invalid', async () => {
     fetch.mockResolvedValueOnce(jsonResponse(200, { status: 'Invalid' }));
 

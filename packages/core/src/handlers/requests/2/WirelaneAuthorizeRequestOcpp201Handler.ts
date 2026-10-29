@@ -17,7 +17,10 @@ import {
 } from '@citrineos/types';
 import { validateIdToken } from '@/util/index.js';
 import { AuthorizeRequestOcpp201Handler } from './AuthorizeRequestOcpp201Handler.js';
-import type { WirelaneAuthorizationClient } from '@modules/WirelaneIntegration/src/module/WirelaneAuthorizationClient.js';
+import {
+  maskIdToken,
+  type WirelaneAuthorizationClient,
+} from '@modules/WirelaneIntegration/src/module/WirelaneAuthorizationClient.js';
 
 type UpstreamDependencies = ConstructorParameters<typeof AuthorizeRequestOcpp201Handler>[0];
 
@@ -54,13 +57,19 @@ export class WirelaneAuthorizeRequestOcpp201Handler extends AuthorizeRequestOcpp
       return super.handle(message, props);
     }
 
+    const idToken = (message.payload as OCPP2_0_1.AuthorizeRequest).idToken;
     this._logger.info(
       this.createHandlerReceivedMessageLog('Wirelane AuthorizeRequest'),
-      message,
+      {
+        ...message,
+        payload: {
+          ...message.payload,
+          idToken: { ...idToken, idToken: maskIdToken(idToken.idToken) },
+        },
+      },
       props,
     );
 
-    const idToken = (message.payload as OCPP2_0_1.AuthorizeRequest).idToken;
     const tokenValidation = validateIdToken(idToken.type, idToken.idToken);
     if (!tokenValidation.isValid) {
       this._logger.warn('Invalid ID token format', {

@@ -105,7 +105,7 @@ export class WirelaneAuthorizationClient {
     }
 
     if (response.status !== 200) {
-      const errorText = await response.text().catch(() => '');
+      const errorText = truncate(await response.text().catch(() => ''));
       this._logger.error('ocpp-adapter authorization request returned an error', {
         ...logContext,
         status: response.status,
@@ -129,9 +129,20 @@ export class WirelaneAuthorizationClient {
     if (!decision) {
       this._logger.error('ocpp-adapter authorization response has an unknown shape', {
         ...logContext,
-        body,
+        body: truncate(JSON.stringify(body) ?? ''),
       });
       return INVALID;
+    }
+    if (
+      decision.cacheExpiryDateTime !== undefined &&
+      !isRfc3339DateTime(decision.cacheExpiryDateTime)
+    ) {
+      // The station would get a FormatViolation CallError instead of the decision.
+      this._logger.warn('Dropping cacheExpiryDateTime that is not an RFC 3339 date-time', {
+        ...logContext,
+        cacheExpiryDateTime: truncate(decision.cacheExpiryDateTime),
+      });
+      delete decision.cacheExpiryDateTime;
     }
 
     this._logger.info('ocpp-adapter authorization decision', {
@@ -152,6 +163,24 @@ function toDecision(body: unknown): WirelaneAuthorizationDecision | undefined {
     return undefined;
   }
   return typeof cacheExpiryDateTime === 'string' ? { status, cacheExpiryDateTime } : { status };
+}
+
+const MAX_LOGGED_BODY_LENGTH = 500;
+
+function truncate(text: string): string {
+  return text.length > MAX_LOGGED_BODY_LENGTH
+    ? `${text.slice(0, MAX_LOGGED_BODY_LENGTH)}... (${text.length} characters)`
+    : text;
+}
+
+/**
+ * Full RFC 3339 date-time with time and offset, as OCPP's `date-time` format requires
+ * (e.g. `2026-10-29T12:00:00Z`, `2026-10-29T12:00:00.123+01:00`).
+ */
+const RFC_3339_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+function isRfc3339DateTime(value: string): boolean {
+  return RFC_3339_DATE_TIME.test(value) && !Number.isNaN(Date.parse(value));
 }
 
 /**

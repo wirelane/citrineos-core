@@ -43,7 +43,7 @@ function makeMessage(idToken: {
 }
 
 describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
-  const { container } = createTestContainer();
+  const { container, logger } = createTestContainer();
   let ocppSender: MockOcppSender;
   let authorizationRepository: { readOnlyOneByQuerystring: ReturnType<typeof vi.fn> };
   let wirelaneAuthorizationClient: {
@@ -73,6 +73,7 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
   }
 
   beforeEach(() => {
+    vi.clearAllMocks();
     ocppSender = makeMockOcppSender();
     authorizationRepository = { readOnlyOneByQuerystring: vi.fn().mockResolvedValue(null) };
     wirelaneAuthorizationClient = {
@@ -163,6 +164,19 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
     expect(wirelaneAuthorizationClient.authorize).not.toHaveBeenCalled();
     expect(authorizationRepository.readOnlyOneByQuerystring).toHaveBeenCalled();
     expect(sentStatus()).toBe('Unknown');
+  });
+
+  it('never logs the plain id token', async () => {
+    await createHandler(WirelaneAuthorizeRequestOcpp201Handler).handle(
+      makeMessage({ idToken: '04A2B3C4D5E6F7', type: 'ISO14443' }),
+    );
+
+    const logged = JSON.stringify(
+      [logger.debug, logger.info, logger.warn, logger.error].flatMap((log) => log.mock.calls),
+    );
+    expect(logger.info).toHaveBeenCalled();
+    expect(logged).not.toContain('04A2B3C4D5E6F7');
+    expect(logged).toContain('04**********F7');
   });
 
   describe('handler metadata', () => {
