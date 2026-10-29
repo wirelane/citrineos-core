@@ -25,6 +25,7 @@ describe('WirelaneTransactionService', () => {
   function startedEvent(idToken: OCPP2_0_1.IdTokenType): OCPP2_0_1.TransactionEventRequest {
     return aTransactionEventRequest((event) => {
       event.eventType = OCPP2_0_1.TransactionEventEnumType.Started;
+      event.timestamp = '2026-10-29T08:15:30.250+01:00';
       event.transactionInfo = { transactionId: 'tx-42' };
       event.evse = { id: 2, connectorId: 1 };
       event.idToken = idToken;
@@ -68,6 +69,7 @@ describe('WirelaneTransactionService', () => {
       connectorId: 1,
       transactionId: 'tx-42',
       eventType: 'Started',
+      timestamp: '2026-10-29T08:15:30.250+01:00',
     });
     expect(response).toEqual({
       idTokenInfo: {

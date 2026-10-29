@@ -26,6 +26,7 @@ describe('WirelaneAuthorizationClient', () => {
     connectorId: 2,
     transactionId: 'tx-1',
     eventType: 'Started',
+    timestamp: '2026-10-29T08:15:30.250+01:00',
   };
 
   function jsonResponse(status: number, body: unknown) {
@@ -82,8 +83,32 @@ describe('WirelaneAuthorizationClient', () => {
       connectorId: 2,
       transactionId: 'tx-1',
       eventType: 'Started',
+      timestamp: '2026-10-29T08:15:30.250+01:00',
     });
     expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('sends no timestamp field for an Authorize request', async () => {
+    fetch.mockResolvedValueOnce(jsonResponse(200, { status: 'Accepted' }));
+
+    await createClient().authorize({
+      tenantId: 1,
+      stationId: 'TEST001',
+      protocol: 'ocpp2.0.1',
+      trigger: 'Authorize',
+      idToken: '04A2B3C4',
+      idTokenType: 'ISO14443',
+    });
+
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      csms: 'citrineos',
+      tenantId: 1,
+      stationId: 'TEST001',
+      protocol: 'ocpp2.0.1',
+      trigger: 'Authorize',
+      idToken: '04A2B3C4',
+      idTokenType: 'ISO14443',
+    });
   });
 
   it('passes cacheExpiryDateTime through', async () => {

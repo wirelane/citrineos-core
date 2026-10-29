@@ -95,6 +95,8 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
       idToken: '04A2B3C4',
       idTokenType: 'ISO14443',
     });
+    // Authorize carries no timestamp; none is invented.
+    expect(wirelaneAuthorizationClient.authorize.mock.calls[0][0]).not.toHaveProperty('timestamp');
     expect(ocppSender.sendCallResultWithMessage).toHaveBeenCalledWith(
       expect.objectContaining({ action: OCPP_CallAction.Authorize }),
       {

@@ -61,6 +61,7 @@ export class WirelaneTransactionService extends TransactionService {
       connectorId: transactionEvent.evse?.connectorId ?? undefined,
       transactionId: transactionEvent.transactionInfo.transactionId,
       eventType: transactionEvent.eventType,
+      timestamp: transactionEvent.timestamp,
     });
 
     const idTokenInfo: OCPP2_0_1.IdTokenInfoType = {

@@ -26,6 +26,11 @@ export type WirelaneAuthorizationRequest = {
   connectorId?: number;
   transactionId?: string;
   eventType?: string;
+  /**
+   * TransactionEvent only: the event's own `timestamp` as the station sent it (RFC 3339). It
+   * differs from now for events the station queued while offline. Authorize has none.
+   */
+  timestamp?: string;
 };
 
 export type WirelaneAuthorizationDecision = {
