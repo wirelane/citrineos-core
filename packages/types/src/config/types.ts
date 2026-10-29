@@ -195,6 +195,16 @@ export const systemConfigInputSchema = z.object({
         ocppAdapterBaseUrl: z.string().optional(),
         /** Callback URL ocpp-adapter registers via the Data API (informational). */
         ocppAdapterWebhookUrl: z.string(),
+        /**
+         * Delegates OCPP 2.0.1 Authorize and token-bearing TransactionEvent authorization to
+         * ocpp-adapter (`POST {ocppAdapterBaseUrl}/internal/authorizations`).
+         */
+        remoteAuthorization: z
+          .object({
+            enabled: z.boolean().default(false),
+            timeoutMs: z.number().int().min(1).default(17000),
+          })
+          .optional(),
       })
       .optional(),
     transactions: z.object({
@@ -531,6 +541,12 @@ export const systemConfigSchema = z
           excludedResponses: z.array(CallActionSchema).optional(),
           ocppAdapterBaseUrl: z.string().optional(),
           ocppAdapterWebhookUrl: z.string(),
+          remoteAuthorization: z
+            .object({
+              enabled: z.boolean(),
+              timeoutMs: z.number().int().min(1),
+            })
+            .optional(),
         })
         .optional(),
       transactions: z
