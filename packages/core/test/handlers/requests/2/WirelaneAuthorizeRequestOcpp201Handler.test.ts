@@ -97,7 +97,12 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
     });
     expect(ocppSender.sendCallResultWithMessage).toHaveBeenCalledWith(
       expect.objectContaining({ action: OCPP_CallAction.Authorize }),
-      { idTokenInfo: { status: 'Accepted' } },
+      {
+        idTokenInfo: {
+          status: 'Accepted',
+          groupIdToken: { idToken: '04A2B3C4', type: 'ISO14443' },
+        },
+      },
     );
   });
 
@@ -121,7 +126,11 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
     );
 
     expect(ocppSender.sendCallResultWithMessage.mock.calls[0][1]).toEqual({
-      idTokenInfo: { status: 'Accepted', cacheExpiryDateTime: '2026-10-29T12:00:00Z' },
+      idTokenInfo: {
+        status: 'Accepted',
+        cacheExpiryDateTime: '2026-10-29T12:00:00Z',
+        groupIdToken: { idToken: '04A2B3C4', type: 'ISO14443' },
+      },
     });
   });
 
@@ -132,7 +141,22 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
       makeMessage({ idToken: '04A2B3C4', type: 'ISO14443' }),
     );
 
-    expect(sentStatus()).toBe('Invalid');
+    expect(ocppSender.sendCallResultWithMessage.mock.calls[0][1]).toEqual({
+      idTokenInfo: { status: 'Invalid' },
+    });
+  });
+
+  it('groups an accepted Central token by itself, like any accepted token', async () => {
+    await createHandler(WirelaneAuthorizeRequestOcpp201Handler).handle(
+      makeMessage({ idToken: 'a1b2c3d4-remote-start', type: 'Central' }),
+    );
+
+    expect(ocppSender.sendCallResultWithMessage.mock.calls[0][1]).toEqual({
+      idTokenInfo: {
+        status: 'Accepted',
+        groupIdToken: { idToken: 'a1b2c3d4-remote-start', type: 'Central' },
+      },
+    });
   });
 
   it('accepts NoAuthorization without asking ocpp-adapter', async () => {
@@ -141,7 +165,9 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
     );
 
     expect(wirelaneAuthorizationClient.authorize).not.toHaveBeenCalled();
-    expect(sentStatus()).toBe('Accepted');
+    expect(ocppSender.sendCallResultWithMessage.mock.calls[0][1]).toEqual({
+      idTokenInfo: { status: 'Accepted' },
+    });
   });
 
   it('answers a malformed ISO14443 token with a CallError without asking ocpp-adapter', async () => {

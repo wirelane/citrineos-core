@@ -69,7 +69,12 @@ describe('WirelaneTransactionService', () => {
       transactionId: 'tx-42',
       eventType: 'Started',
     });
-    expect(response).toEqual({ idTokenInfo: { status: 'Accepted' } });
+    expect(response).toEqual({
+      idTokenInfo: {
+        status: 'Accepted',
+        groupIdToken: { idToken: '04A2B3C4', type: 'ISO14443' },
+      },
+    });
     expect(authorizationRepository.readAllByQuerystring).not.toHaveBeenCalled();
   });
 
@@ -87,6 +92,21 @@ describe('WirelaneTransactionService', () => {
 
     expect(response).toEqual({
       idTokenInfo: { status: 'Invalid', cacheExpiryDateTime: '2026-10-29T12:00:00Z' },
+    });
+  });
+
+  it('groups an accepted Central token by itself, like any accepted token', async () => {
+    const response = await service.authorizeOcpp201IdToken(
+      DEFAULT_TENANT_ID,
+      startedEvent({ idToken: 'a1b2c3d4-remote-start', type: OCPP2_0_1.IdTokenEnumType.Central }),
+      messageContext,
+    );
+
+    expect(response).toEqual({
+      idTokenInfo: {
+        status: 'Accepted',
+        groupIdToken: { idToken: 'a1b2c3d4-remote-start', type: 'Central' },
+      },
     });
   });
 

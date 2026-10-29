@@ -42,7 +42,8 @@ export class WirelaneTransactionService extends TransactionService {
       return super.authorizeOcpp201IdToken(tenantId, transactionEvent, messageContext);
     }
 
-    const idToken = transactionEvent.idToken!;
+    // Only called for OCPP 2.0.1 (see below), so the payload is a 2.0.1 TransactionEventRequest.
+    const idToken = (transactionEvent as OCPP2_0_1.TransactionEventRequest).idToken!;
     if (idToken.type === IdTokenEnum.NoAuthorization) {
       return { idTokenInfo: { status: OCPP2_0_1.AuthorizationStatusEnumType.Accepted } };
     }
@@ -70,6 +71,12 @@ export class WirelaneTransactionService extends TransactionService {
     };
     if (decision.cacheExpiryDateTime) {
       idTokenInfo.cacheExpiryDateTime = decision.cacheExpiryDateTime;
+    }
+    if (decision.status === 'Accepted') {
+      // Each card is its own group, as in ocpp-server (parentIdTag = idTag): a station lets only
+      // the same card stop the transaction. Without a group, some stations let any card stop it.
+      // NoAuthorization (answered above) gets no group: it identifies nobody.
+      idTokenInfo.groupIdToken = { idToken: idToken.idToken, type: idToken.type };
     }
     return { idTokenInfo };
   }

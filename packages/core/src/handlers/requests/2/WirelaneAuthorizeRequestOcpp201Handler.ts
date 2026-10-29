@@ -89,6 +89,7 @@ export class WirelaneAuthorizeRequestOcpp201Handler extends AuthorizeRequestOcpp
 
     let response: OCPP2_response_types.AuthorizeResponse;
     if (idToken.type === IdTokenEnum.NoAuthorization) {
+      // No groupIdToken: NoAuthorization identifies nobody, so there is no card to group by.
       response = {
         idTokenInfo: { status: AuthorizationStatusEnum.Accepted },
       } as OCPP2_response_types.AuthorizeResponse;
@@ -109,6 +110,11 @@ export class WirelaneAuthorizeRequestOcpp201Handler extends AuthorizeRequestOcpp
               : AuthorizationStatusEnum.Invalid,
           ...(decision.cacheExpiryDateTime
             ? { cacheExpiryDateTime: decision.cacheExpiryDateTime }
+            : {}),
+          // Each card is its own group (like ocpp-server's parentIdTag = idTag), so a station
+          // lets only the same card stop the transaction; see WirelaneTransactionService.
+          ...(decision.status === 'Accepted'
+            ? { groupIdToken: { idToken: idToken.idToken, type: idToken.type } }
             : {}),
         },
       } as OCPP2_response_types.AuthorizeResponse;
