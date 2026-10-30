@@ -20,4 +20,10 @@ describe('createDockerConfig', () => {
     expect(config.modules.wirelane).toBeDefined();
     expect(config.modules.wirelane?.remoteAuthorization?.enabled).toBe(true);
   });
+
+  it('answers within the time the router keeps the station call, with 2 s for its own queueing', () => {
+    // a CallResult sent after maxCallLengthSeconds is dropped and never reaches the station
+    expect(config.maxCallLengthSeconds).toBe(20);
+    expect(config.modules.wirelane?.remoteAuthorization?.timeoutMs).toBe(18000);
+  });
 });

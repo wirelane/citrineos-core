@@ -6,7 +6,8 @@ import type { SystemConfig } from '@citrineos/types';
 import type { ILogObj } from 'tslog';
 import { Logger } from 'tslog';
 
-export const DEFAULT_REMOTE_AUTHORIZATION_TIMEOUT_MS = 17_000;
+// below the default maxCallLengthSeconds (20 s), so the answer still reaches the station
+export const DEFAULT_REMOTE_AUTHORIZATION_TIMEOUT_MS = 18_000;
 
 export type WirelaneAuthorizationTrigger = 'Authorize' | 'TransactionEvent';
 

@@ -159,7 +159,8 @@ export function createDockerConfig() {
         // Emergency switch: CITRINEOS_modules_wirelane_remoteAuthorization_enabled=false
         remoteAuthorization: {
           enabled: true,
-          timeoutMs: 17000,
+          // below maxCallLengthSeconds: a later answer is dropped and never reaches the station
+          timeoutMs: 18000,
         },
       },
       transactions: {

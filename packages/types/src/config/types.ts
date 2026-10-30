@@ -202,7 +202,7 @@ export const systemConfigInputSchema = z.object({
         remoteAuthorization: z
           .object({
             enabled: z.boolean().default(false),
-            timeoutMs: z.number().int().min(1).default(17000),
+            timeoutMs: z.number().int().min(1).default(18000),
           })
           .optional(),
       })
