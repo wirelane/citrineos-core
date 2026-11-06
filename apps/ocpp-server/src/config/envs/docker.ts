@@ -93,11 +93,11 @@ export function createDockerConfig() {
           OCPP_CallAction.RemoteStartTransaction,
           OCPP_CallAction.NotifyWebPaymentStarted,
         ],
-        requests: [
-          OCPP_CallAction.Authorize,
-          OCPP_CallAction.ReservationStatusUpdate,
-          OCPP_CallAction.VatNumberValidation,
-        ],
+        requests: [OCPP_CallAction.ReservationStatusUpdate, OCPP_CallAction.VatNumberValidation],
+        // Authorize is answered by the Wirelane module instead (see
+        // WirelaneIntegration/src/register.ts). The wirelane module below must run, or no
+        // module answers Authorize at all.
+        excludedRequests: [OCPP_CallAction.Authorize],
       },
       monitoring: {
         endpointPrefix: '/monitoring',
@@ -156,6 +156,12 @@ export function createDockerConfig() {
         requests: [OCPP_CallAction.BootNotification],
         ocppAdapterBaseUrl: 'http://localhost:11999',
         ocppAdapterWebhookUrl: 'http://localhost:11999/webhook/citrineos',
+        // Emergency switch: CITRINEOS_modules_wirelane_remoteAuthorization_enabled=false
+        remoteAuthorization: {
+          enabled: true,
+          // below maxCallLengthSeconds: a later answer is dropped and never reaches the station
+          timeoutMs: 18000,
+        },
       },
       transactions: {
         endpointPrefix: '/transactions',
