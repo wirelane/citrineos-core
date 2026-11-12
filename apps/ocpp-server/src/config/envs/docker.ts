@@ -156,7 +156,9 @@ export function createDockerConfig() {
         requests: [OCPP_CallAction.BootNotification],
         ocppAdapterBaseUrl: 'http://localhost:11999',
         ocppAdapterWebhookUrl: 'http://localhost:11999/webhook/citrineos',
-        // Emergency switch: CITRINEOS_modules_wirelane_remoteAuthorization_enabled=false
+        // Emergency switch: CITRINEOS_modules_wirelane_remoteAuthorization_enabled=false.
+        // While it is off, ocpp-adapter cannot link RFID transactions to a CSG authorization,
+        // so they are not pushed to charging-session-gateway and not billed.
         remoteAuthorization: {
           enabled: true,
           // below maxCallLengthSeconds: a later answer is dropped and never reaches the station
