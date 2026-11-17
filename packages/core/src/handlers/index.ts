@@ -38,6 +38,7 @@ export { StartTransactionRequestOcpp16Handler } from './requests/1.6/StartTransa
 export { StatusNotificationRequestOcpp16Handler } from './requests/1.6/StatusNotificationRequestOcpp16Handler.js';
 export { StatusNotificationRequestOcpp2Handler } from './requests/2/StatusNotificationRequestOcpp2Handler.js';
 export { StopTransactionRequestOcpp16Handler } from './requests/1.6/StopTransactionRequestOcpp16Handler.js';
+export { WirelaneAuthorizeRequestOcpp201Handler } from './requests/2/WirelaneAuthorizeRequestOcpp201Handler.js';
 export { WirelaneBootNotificationRequestOcpp16Handler } from './requests/1.6/WirelaneBootNotificationRequestOcpp16Handler.js';
 export { WirelaneBootNotificationRequestOcpp2Handler } from './requests/2/WirelaneBootNotificationRequestOcpp2Handler.js';
 export { TransactionEventRequestOcpp2Handler } from './requests/2/TransactionEventRequestOcpp2Handler.js';
