@@ -24,6 +24,8 @@
     "refreshMessages": "Refresh Messages",
     "noDataFound": "No charging station found with id {id}.",
     "unsupportedProtocol": "Unsupported protocol version: {protocol}",
+    "noAdditionalCommands": "No additional commands are available to you for this charging station.",
+    "noCommandPermissions": "No command permissions",
     "fieldRequired": "{field} is required",
     "exportToCsvError": "Could export to CSV due to error: {error}",
     "detailCard": {
@@ -61,6 +63,7 @@
       "vendorModel": "Vendor / Model",
       "vendor": "Vendor",
       "floorLevel": "Floor Level",
+      "chargePointSerialNumber": "Charge Point Serial Number",
       "parkingRestrictions": "Parking Restrictions",
       "capabilities": "Capabilities",
       "firmwareVersion": "Firmware Version",

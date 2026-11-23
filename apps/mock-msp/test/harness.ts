@@ -23,15 +23,15 @@ import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import type { MockConfig, MockContext } from '../src/core/types.js';
 import { buildIdentity } from '../src/identity.js';
-import { createStore } from '../src/core/Store.js';
+import { createStore } from '../src/core/store.js';
 import { createFaultEngine } from '../src/core/faults.js';
-import { createWireLogger } from '../src/core/wireLog.js';
+import { createWireLogger } from '../src/core/wire-log.js';
 import { createOcpiClient } from '../src/core/client.js';
 import { ok, empty, error } from '../src/core/envelope.js';
 import { encodeToken } from '../src/core/auth.js';
 import { buildServer } from '../src/server.js';
 import { resetScenarioRuntime } from '../src/control/scenario.js';
-import type { StatusProbes } from '../src/control/statusCache.js';
+import type { StatusProbes } from '../src/control/status-cache.js';
 
 // The plaintext tokens the harness uses. Any consistent values work; the auth
 // layer base64-encodes on the wire and decodes+compares the plaintext.
@@ -83,6 +83,32 @@ export function makeServer(
   const ctx = makeContext(config);
   const app = buildServer(ctx, probeOverride);
   return { ctx, app };
+}
+
+export interface ListeningServer extends TestServer {
+  origin: string; // http://127.0.0.1:PORT
+  close(): Promise<void>;
+}
+
+/**
+ * Same as makeServer() but bound to a real ephemeral port. Needed where
+ * app.inject() cannot observe the behaviour: the `abort` fault destroys the
+ * socket, `delay` is only measurable end to end, and the entrypoint-style
+ * paths talk to a URL.
+ */
+export async function makeListeningServer(
+  overrides: Partial<MockConfig> = {},
+  probeOverride?: Partial<StatusProbes>,
+): Promise<ListeningServer> {
+  const { ctx, app } = makeServer(overrides, probeOverride);
+  await app.listen({ port: 0, host: '127.0.0.1' });
+  const addr = app.server.address() as AddressInfo;
+  return {
+    ctx,
+    app,
+    origin: `http://127.0.0.1:${addr.port}`,
+    close: () => app.close(),
+  };
 }
 
 // ---- Authorization + routing header helpers --------------------------------
@@ -199,9 +225,9 @@ export async function startStubCpo(
   return stub;
 }
 
-// ---- Schema-valid OCPI fixtures (reused ocpi-base shapes) -------------------
+// ---- Schema-valid OCPI fixtures (reused ocpi shapes) -------------------
 
-/** A full, schema-valid ocpi-base Session (passes SessionSchema.parse). */
+/** A full, schema-valid ocpi Session (passes SessionSchema.parse). */
 export function validSession(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     country_code: 'US',

@@ -287,6 +287,12 @@ export class OcppError extends Error {
   ) {
     super(errorDescription);
     this.name = 'OcppError';
+    Object.defineProperty(this, 'message', {
+      value: errorDescription,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
     this._messageId = messageId;
     this._errorCode = errorCode;
     this._errorDetails = errorDetails;
@@ -331,6 +337,7 @@ const OCPP_CallActions = new Set<string>([
   OCPP_CallAction.GetDiagnostics,
   OCPP_CallAction.RemoteStartTransaction,
   OCPP_CallAction.RemoteStopTransaction,
+  OCPP_CallAction.SecurityEventNotification,
   OCPP_CallAction.StartTransaction,
   OCPP_CallAction.StopTransaction,
 ]);

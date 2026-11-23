@@ -9,10 +9,10 @@ A mock **eMSP** (e-Mobility Service Provider) that speaks **OCPI 2.2.1** and
 impersonates the seeded partner **`US/TST` "TestMobilitySolutions"**. Its job is
 to test CitrineOS's **CPO-side** OCPI implementation from the outside: it listens
 on **port 8083**, exposes exactly the endpoint paths the partner seed advertises,
-and **reuses `@citrineos/ocpi-base`'s Zod schemas verbatim** to validate every
+and **reuses `@citrineos/ocpi`'s Zod schemas verbatim** to validate every
 inbound request and self-check every reply.
 
-Because those schemas are the *same catalog `zod` instance* (`4.1.12`) Citrine
+Because those schemas are the _same catalog `zod` instance_ (`4.1.12`) Citrine
 parses with, the two sides never disagree by accident. The only wire deviations
 Citrine ever sees are ones a scenario **deliberately injects** — so **a
 validation failure is a detected Citrine-side contract issue**, not schema drift.
@@ -20,7 +20,7 @@ validation failure is a detected Citrine-side contract issue**, not schema drift
 The mock is three machines over one in-memory store:
 
 - **Recorder** — every inbound request and outbound call becomes an immutable,
-  queryable, *awaitable* `Exchange` (a wire trace you can assert against).
+  queryable, _awaitable_ `Exchange` (a wire trace you can assert against).
 - **Actor** — drives the credentials handshake (both directions), sends
   Commands to Citrine, hosts the async `response_url` callbacks, and pulls
   Citrine's SENDER endpoints.
@@ -46,16 +46,16 @@ async traffic, drive the Actor, arm faults, and run assertion oracles.
   live-charging flows also the EVerest simulator containers. The scripts under
   `scripts/` handle the git-bash quirks (`MSYS_NO_PATHCONV`, netstat pid
   resolution) themselves — run them from git bash on Windows as-is.
-- **Build `@citrineos/ocpi-base` first.** The mock deep-imports a handful of
-  schemas from `@citrineos/ocpi-base/dist/...` (see `src/ocpi/barrel.ts`), and
-  ocpi-base ships **only `dist/`** (no `src`, no `exports` map). ocpi-base's
-  `tsc -b` references `@citrineos/base` and `@citrineos/core`, so build the
+- **Build `@citrineos/ocpi` first.** The mock deep-imports a handful of
+  schemas from `@citrineos/ocpi/dist/...` (see `src/ocpi/barrel.ts`), and
+  ocpi ships **only `dist/`** (no `src`, no `exports` map). ocpi's
+  `tsc -b` references `@citrineos/base` and `@citrineos/ocpp`, so build the
   closure in order:
 
   ```bash
   pnpm --filter @citrineos/base build
-  pnpm --filter @citrineos/core build
-  pnpm --filter @citrineos/ocpi-base build
+  pnpm --filter @citrineos/ocpp build
+  pnpm --filter @citrineos/ocpi build
   ```
 
   or in one shot (builds the whole dependency closure topologically):
@@ -67,7 +67,7 @@ async traffic, drive the Actor, arm faults, and run assertion oracles.
 > If the barrel fails to resolve at runtime with unrewritten path aliases
 > (`@interfaces/*`, `@ocpp/*`, …), the upstream package's `dist` was built with a
 > bare `tsc -b` that skipped its `tsc-alias` step. Re-run the package's full
-> `build` script (`tsc -b && tsc-alias`) for `base`/`core`/`ocpi-base`.
+> `build` script (`tsc -b && tsc-alias`) for `base`/`core`/`ocpi`.
 
 ---
 
@@ -75,7 +75,7 @@ async traffic, drive the Actor, arm faults, and run assertion oracles.
 
 ```bash
 # from the repo root
-pnpm --filter "@citrineos/mock-msp..." build   # ensures ocpi-base/dist exists
+pnpm --filter "@citrineos/mock-msp..." build   # ensures ocpi/dist exists
 pnpm --filter @citrineos/mock-msp start        # node dist/index.js, listens on :8083
 ```
 
@@ -207,59 +207,59 @@ status, never build the envelope, never check auth.
 
 ### File map
 
-| Path (`apps/mock-msp/`) | Role |
-|---|---|
-| `src/index.ts` | Entrypoint: `loadConfig → buildContext → applyScenario? → buildServer → listen(:8083) → autoRegister?` |
-| `src/config.ts` | `loadConfig(env)` → `MockConfig` (port, base URLs, bootstrap tokens) |
-| `src/identity.ts` | `US/TST` EMSP identity + `buildEndpointCatalog()` (the 8 split `{identifier,role,url}` endpoints) |
-| `src/context.ts` | `buildContext(cfg)` — assembles the singletons (WireLogger → Store → FaultEngine → OcpiClient) |
-| `src/server.ts` | `buildServer(ctx)` — Fastify factory, raw-JSON parser, mounts modules + control API |
-| `src/ocpi/barrel.ts` | **The ONLY** import site for `@citrineos/ocpi-base` (barrel exports + `dist` deep-imports) |
-| `src/ocpi/dispatcher.ts` | `dispatch(route, ctx, freq, freply)` — the uniform per-request pipeline |
-| `src/core/registry.ts` | `registerAllModules` — binds each `OcpiRoute` through the dispatcher |
-| `src/core/types.ts` | All shared types/interfaces (`MockContext`, `Exchange`, `Store`, `FaultEngine`, `Scenario`, …) |
-| `src/core/envelope.ts` | `ok()/empty()/error()` → `OcpiReply`; `buildBody()` wraps the ocpi-base envelope builders |
-| `src/core/Store.ts` | Exchange ring buffer (cap 10k) + `DomainState` + `waitForReceived` + findings + `reset` |
-| `src/core/auth.ts` | base64 `Token` encode/decode; inbound verify; outbound `Authorization` builder |
-| `src/core/routingHeaders.ts` | Parse / strict-require / echo `OCPI-*` + `X-Request-ID`/`X-Correlation-ID` |
-| `src/core/conformance.ts` | `check(ctx, schema) → Finding[]` — header + `safeParse` body checks, never throws |
-| `src/core/faults.ts` | `FaultEngine` (matcher) + injectors (`mutateJson`, `dropHeaderCI`, `oversizeTokenBody`) |
-| `src/core/client.ts` | `OcpiClient` (Actor): fetch wrapper + handshake + `sendCommand` + `pull` |
-| `src/core/wireLog.ts` | `WireLogger` — NDJSON + pretty console, token redaction |
-| `src/modules/*.ts` | One `ModuleDef` each: `versions`, `credentials`, `locations`, `tariffs`, `sessions`, `cdrs`, `chargingprofiles`, `tokens`, `commands` |
-| `src/control/controlApi.ts` | `registerControlApi(app, ctx)` — all `/_mock/*` routes |
-| `src/control/scenario.ts` | `Scenario` zod schema + `loadScenario` / `applyScenario` / `evaluateExpectations` + authorize-policy runtime |
-| `src/control/statusCache.ts` | TTL probe cache behind `/_mock/status` (serve-stale-trigger-refresh; no timers) |
-| `src/control/dashboard.ts` | serves `public/dashboard.html` at `/` + `/_mock/ui` (and `dashboard.next.html` at `/_mock/ui2` while the redesign is in progress) |
-| `scripts/register.ts` | One-command handshake helper (drives `/_mock/register`) |
-| `scripts/demo-up.sh` / `demo-down.sh` | bring the native mock up (alias repair, build, free port, health-gate) / stop it — both idempotent |
-| `scripts/everest-up.sh` / `everest-plug.sh` | EVerest bring-up (OCPP 2.0.1 device-model patch + online gate) / MQTT car-sim fallback |
-| `scripts/demo-seed.sh` / `demo-trigger.sh` | fake-Citrine dashboard seeding / real Citrine push via a Hasura DB insert |
-| `scenarios/*.json` | Checked-in `Scenario` fixtures (see below) |
-| `test/*.test.ts` | vitest self-tests (`test/harness.ts` = shared scaffolding + stub CPO) |
+| Path (`apps/mock-msp/`)                     | Role                                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`                              | Entrypoint: `loadConfig → buildContext → applyScenario? → buildServer → listen(:8083) → autoRegister?`                                |
+| `src/config.ts`                             | `loadConfig(env)` → `MockConfig` (port, base URLs, bootstrap tokens)                                                                  |
+| `src/identity.ts`                           | `US/TST` EMSP identity + `buildEndpointCatalog()` (the 8 split `{identifier,role,url}` endpoints)                                     |
+| `src/context.ts`                            | `buildContext(cfg)` — assembles the singletons (WireLogger → Store → FaultEngine → OcpiClient)                                        |
+| `src/server.ts`                             | `buildServer(ctx)` — Fastify factory, raw-JSON parser, mounts modules + control API                                                   |
+| `src/ocpi/barrel.ts`                        | **The ONLY** import site for `@citrineos/ocpi` (barrel exports + `dist` deep-imports)                                            |
+| `src/ocpi/dispatcher.ts`                    | `dispatch(route, ctx, freq, freply)` — the uniform per-request pipeline                                                               |
+| `src/core/registry.ts`                      | `registerAllModules` — binds each `OcpiRoute` through the dispatcher                                                                  |
+| `src/core/types.ts`                         | All shared types/interfaces (`MockContext`, `Exchange`, `Store`, `FaultEngine`, `Scenario`, …)                                        |
+| `src/core/envelope.ts`                      | `ok()/empty()/error()` → `OcpiReply`; `buildBody()` wraps the ocpi envelope builders                                             |
+| `src/core/store.ts`                         | Exchange ring buffer (cap 10k) + `DomainState` + `waitForReceived` + findings + `reset`                                               |
+| `src/core/auth.ts`                          | base64 `Token` encode/decode; inbound verify; outbound `Authorization` builder                                                        |
+| `src/core/routing-headers.ts`                | Parse / strict-require / echo `OCPI-*` + `X-Request-ID`/`X-Correlation-ID`                                                            |
+| `src/core/conformance.ts`                   | `check(ctx, schema) → Finding[]` — header + `safeParse` body checks, never throws                                                     |
+| `src/core/faults.ts`                        | `FaultEngine` (matcher) + injectors (`mutateJson`, `dropHeaderCI`, `oversizeTokenBody`)                                               |
+| `src/core/client.ts`                        | `OcpiClient` (Actor): fetch wrapper + handshake + `sendCommand` + `pull`                                                              |
+| `src/core/wire-log.ts`                       | `WireLogger` — NDJSON + pretty console, token redaction                                                                               |
+| `src/modules/*.ts`                          | One `ModuleDef` each: `versions`, `credentials`, `locations`, `tariffs`, `sessions`, `cdrs`, `chargingprofiles`, `tokens`, `commands` |
+| `src/control/control-api.ts`                 | `registerControlApi(app, ctx)` — all `/_mock/*` routes                                                                                |
+| `src/control/scenario.ts`                   | `Scenario` zod schema + `loadScenario` / `applyScenario` / `evaluateExpectations` + authorize-policy runtime                          |
+| `src/control/status-cache.ts`                | TTL probe cache behind `/_mock/status` (serve-stale-trigger-refresh; no timers)                                                       |
+| `src/control/dashboard.ts`                  | serves `public/dashboard.html` at `/` + `/_mock/ui` (and `dashboard.next.html` at `/_mock/ui2` while the redesign is in progress)     |
+| `scripts/register.ts`                       | One-command handshake helper (drives `/_mock/register`)                                                                               |
+| `scripts/demo-up.sh` / `demo-down.sh`       | bring the native mock up (alias repair, build, free port, health-gate) / stop it — both idempotent                                    |
+| `scripts/everest-up.sh` / `everest-plug.sh` | EVerest bring-up (OCPP 2.0.1 device-model patch + online gate) / MQTT car-sim fallback                                                |
+| `scripts/demo-seed.sh` / `demo-trigger.sh`  | fake-Citrine dashboard seeding / real Citrine push via a Hasura DB insert                                                             |
+| `scenarios/*.json`                          | Checked-in `Scenario` fixtures (see below)                                                                                            |
+| `test/*.test.ts`                            | vitest self-tests (`test/harness.ts` = shared scaffolding + stub CPO)                                                                 |
 
 ---
 
 ## Identity & tokens (mirrors the partner seed)
 
-| Field | Value |
-|---|---|
-| role / country / party | `EMSP` / `US` / `TST` |
-| business name | `TestMobilitySolutions` |
-| OCPI version | `2.2.1` |
+| Field                             | Value                                   |
+| --------------------------------- | --------------------------------------- |
+| role / country / party            | `EMSP` / `US` / `TST`                   |
+| business name                     | `TestMobilitySolutions`                 |
+| OCPI version                      | `2.2.1`                                 |
 | advertised base (`publicBaseUrl`) | `http://host.docker.internal:8083/ocpi` |
-| Citrine CPO identity | `CPO` / `US` / `S44` |
+| Citrine CPO identity              | `CPO` / `US` / `S44`                    |
 
 Two bootstrap tokens (both **base64-encoded on the wire**, format
 `Authorization: Token <base64(raw)>`):
 
-| Seed field | Raw value | Direction |
-|---|---|---|
-| `credentials.token` | the seed's `credentials.token` (`abc123…`) | Citrine **presents** this calling us → the mock **accepts** it inbound. |
-| `serverCredentials.token` | the seed's `serverCredentials.token` (unsigned dev value) | The mock **presents** this calling Citrine. |
+| Seed field                | Raw value                                                 | Direction                                                               |
+| ------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `credentials.token`       | the seed's `credentials.token` (`abc123…`)                | Citrine **presents** this calling us → the mock **accepts** it inbound. |
+| `serverCredentials.token` | the seed's `serverCredentials.token` (unsigned dev value) | The mock **presents** this calling Citrine.                             |
 
 The exact bootstrap values live in the seed
-(`apps/ocpi-server/seeders/20250806120002-default-tenant-partner.ts`) — the mock
+(`apps/ocpi-server/db/seeders/20250806120002-default-tenant-partner.ts`) — the mock
 reads them from there (or from the `MOCK_MSP_*` env vars) rather than repeating
 them here.
 
@@ -289,44 +289,44 @@ OCPI-authenticated (optional `x-mock-control-secret` header if
 
 **Inspection (recorder)**
 
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/_mock/health` | up + registration summary |
-| GET | `/_mock/status` | aggregate live status (mock, Citrine OCPI reachability, Hasura station/connector/transaction, EVerest container) from a TTL probe cache — safe to poll at 2 s. `?fresh=1` forces an awaited refresh |
-| GET | `/_mock/registration` | current registration state incl. tokens + CPO endpoint catalog |
-| GET | `/_mock/state` | full domain snapshot (registration + stored objects) |
-| GET | `/_mock/state/:module` | one module's stored objects |
-| GET | `/_mock/exchanges` | `?direction=&module=&operation=&method=&pathMatches=&minSeq=&httpStatus=&ocpiStatusCode=&validationOk=&limit=&offset=` or `?filter=<json>` |
-| GET | `/_mock/exchanges/:id` | one exchange |
-| GET | `/_mock/received/:module` | inbound exchanges for one module (same query params) |
-| POST | `/_mock/exchanges/wait` | `{ filter, timeoutMs }` long-poll; **`408` + near-misses on timeout** (`GET /_mock/wait` is the query-string twin) |
-| DELETE | `/_mock/exchanges` | clear the recorder |
-| GET / DELETE | `/_mock/findings` | list / clear findings |
+| Method       | Path                      | Notes                                                                                                                                                                                               |
+| ------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET          | `/_mock/health`           | up + registration summary                                                                                                                                                                           |
+| GET          | `/_mock/status`           | aggregate live status (mock, Citrine OCPI reachability, Hasura station/connector/transaction, EVerest container) from a TTL probe cache — safe to poll at 2 s. `?fresh=1` forces an awaited refresh |
+| GET          | `/_mock/registration`     | current registration state incl. tokens + CPO endpoint catalog                                                                                                                                      |
+| GET          | `/_mock/state`            | full domain snapshot (registration + stored objects)                                                                                                                                                |
+| GET          | `/_mock/state/:module`    | one module's stored objects                                                                                                                                                                         |
+| GET          | `/_mock/exchanges`        | `?direction=&module=&operation=&method=&pathMatches=&minSeq=&httpStatus=&ocpiStatusCode=&validationOk=&limit=&offset=` or `?filter=<json>`                                                          |
+| GET          | `/_mock/exchanges/:id`    | one exchange                                                                                                                                                                                        |
+| GET          | `/_mock/received/:module` | inbound exchanges for one module (same query params)                                                                                                                                                |
+| POST         | `/_mock/exchanges/wait`   | `{ filter, timeoutMs }` long-poll; **`408` + near-misses on timeout** (`GET /_mock/wait` is the query-string twin)                                                                                  |
+| DELETE       | `/_mock/exchanges`        | clear the recorder                                                                                                                                                                                  |
+| GET / DELETE | `/_mock/findings`         | list / clear findings                                                                                                                                                                               |
 
 **Control (actor + adversary + lifecycle)**
 
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/_mock/reset` | `{ keepRegistration? }` |
-| GET / POST | `/_mock/scenario` | read / hot-load a `Scenario` |
-| POST | `/_mock/register` | `?mode=msp-initiated\|cpo-initiated` |
-| POST | `/_mock/reregister` | catalog re-discovery + **real credentials rotation** with a stale-token 401 probe (`{ discoverOnly: true }` skips the rotation) |
-| POST | `/_mock/unregister` | DELETE credentials at the CPO |
-| POST | `/_mock/emit/token-patch` | PATCH a pushed token at the CPO — default target is the **newest pushed** uid (never the seeded `DEADBEEF` implicitly), default patch `{ valid: false }` (block). `409` if nothing was pushed |
-| POST | `/_mock/verify/token` | GET our token back from Citrine and diff field-level drift vs the copy we pushed; `verified` = no error-level drift. Surfaces the PATCH-omits-`valid` bug (below) |
-| GET | `/_mock/probes` | run the semantic spec probes (see §Spec probes); failing probes are recorded as findings |
-| POST | `/_mock/commands/:type`, `/_mock/emit/command` | body = `StartSession`/`StopSession`/… → `{ sync, responseUrl }`. Empty `{}` payload is back-filled with a **schema-valid per-type default** (see §Dashboard). |
-| POST | `/_mock/emit/token` | push a default RFID token to Citrine (RECEIVER `PUT`) |
-| POST | `/_mock/pull/:module` | GET Citrine's CPO SENDER endpoints (`locations`/`sessions`/`cdrs`/`tariffs`) |
-| GET | `/_mock/discover/evse` | pull Citrine's locations and return the first real `{ location_id, evse_uid, connector_id }` (what a real eMSP does before commanding). See §Live charging. |
-| POST | `/_mock/charge/start` | `{ location_id?, evse_uid?, connector_id?, token_uid?, timeoutMs? }` → `START_SESSION`, then **await** the async `CommandResult` + the pushed `Session`. Defaults target the seeded EVerest station. |
-| POST | `/_mock/charge/stop` | `{ session_id?, timeoutMs? }` → `STOP_SESSION` (session_id defaults to the last pushed session), then await the `CommandResult` + the pushed `CDR`. |
-| POST | `/_mock/everest/plug`, `/_mock/everest/unplug` | drive the EVerest car simulator over MQTT (`docker exec … mosquitto_pub`). Needs docker access → run the mock **natively**, or use `scripts/everest-plug.sh`. |
-| POST | `/_mock/provoke/:what` | **make Citrine push back**: `location-add` (Hasura insert → Citrine `PUT`, reproduces the coordinates bug) / `location-nudge` (Hasura update → Citrine `PATCH`). See §Dashboard. |
-| GET | `/_mock/coverage` | module × direction matrix (`{ modules:[{module, inbound:{count,lastOk}, outbound:{count,lastOk}}], generatedAt }`) aggregated from the recorder — no new state. |
-| POST | `/_mock/authorize` | `{ default, byUid }` set live authorize behavior |
-| GET / POST / DELETE | `/_mock/faults[/:id]`, POST `/_mock/fault` | CRUD `FaultRule` (`/fault` arms one rule — used by the dashboard builder) |
-| POST | `/_mock/scenarios/:id/evaluate` | run a scenario's `expect[]` oracle → pass/fail |
+| Method              | Path                                           | Notes                                                                                                                                                                                                |
+| ------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST                | `/_mock/reset`                                 | `{ keepRegistration? }`                                                                                                                                                                              |
+| GET / POST          | `/_mock/scenario`                              | read / hot-load a `Scenario`                                                                                                                                                                         |
+| POST                | `/_mock/register`                              | `?mode=msp-initiated\|cpo-initiated`                                                                                                                                                                 |
+| POST                | `/_mock/reregister`                            | catalog re-discovery + **real credentials rotation** with a stale-token 401 probe (`{ discoverOnly: true }` skips the rotation)                                                                      |
+| POST                | `/_mock/unregister`                            | DELETE credentials at the CPO                                                                                                                                                                        |
+| POST                | `/_mock/emit/token-patch`                      | PATCH a pushed token at the CPO — default target is the **newest pushed** uid (never the seeded `DEADBEEF` implicitly), default patch `{ valid: false }` (block). `409` if nothing was pushed        |
+| POST                | `/_mock/verify/token`                          | GET our token back from Citrine and diff field-level drift vs the copy we pushed; `verified` = no error-level drift. Surfaces the PATCH-omits-`valid` bug (below)                                    |
+| GET                 | `/_mock/probes`                                | run the semantic spec probes (see §Spec probes); failing probes are recorded as findings                                                                                                             |
+| POST                | `/_mock/commands/:type`, `/_mock/emit/command` | body = `StartSession`/`StopSession`/… → `{ sync, responseUrl }`. Empty `{}` payload is back-filled with a **schema-valid per-type default** (see §Dashboard).                                        |
+| POST                | `/_mock/emit/token`                            | push a default RFID token to Citrine (RECEIVER `PUT`)                                                                                                                                                |
+| POST                | `/_mock/pull/:module`                          | GET Citrine's CPO SENDER endpoints (`locations`/`sessions`/`cdrs`/`tariffs`)                                                                                                                         |
+| GET                 | `/_mock/discover/evse`                         | pull Citrine's locations and return the first real `{ location_id, evse_uid, connector_id }` (what a real eMSP does before commanding). See §Live charging.                                          |
+| POST                | `/_mock/charge/start`                          | `{ location_id?, evse_uid?, connector_id?, token_uid?, timeoutMs? }` → `START_SESSION`, then **await** the async `CommandResult` + the pushed `Session`. Defaults target the seeded EVerest station. |
+| POST                | `/_mock/charge/stop`                           | `{ session_id?, timeoutMs? }` → `STOP_SESSION` (session_id defaults to the last pushed session), then await the `CommandResult` + the pushed `CDR`.                                                  |
+| POST                | `/_mock/everest/plug`, `/_mock/everest/unplug` | drive the EVerest car simulator over MQTT (`docker exec … mosquitto_pub`). Needs docker access → run the mock **natively**, or use `scripts/everest-plug.sh`.                                        |
+| POST                | `/_mock/provoke/:what`                         | **make Citrine push back**: `location-add` (Hasura insert → Citrine `PUT`, reproduces the coordinates bug) / `location-nudge` (Hasura update → Citrine `PATCH`). See §Dashboard.                     |
+| GET                 | `/_mock/coverage`                              | module × direction matrix (`{ modules:[{module, inbound:{count,lastOk}, outbound:{count,lastOk}}], generatedAt }`) aggregated from the recorder — no new state.                                      |
+| POST                | `/_mock/authorize`                             | `{ default, byUid }` set live authorize behavior                                                                                                                                                     |
+| GET / POST / DELETE | `/_mock/faults[/:id]`, POST `/_mock/fault`     | CRUD `FaultRule` (`/fault` arms one rule — used by the dashboard builder)                                                                                                                            |
+| POST                | `/_mock/scenarios/:id/evaluate`                | run a scenario's `expect[]` oracle → pass/fail                                                                                                                                                       |
 
 ---
 
@@ -340,7 +340,7 @@ is that missing charger. With it connected, the mock's `START_SESSION` reaches a
 live station and completes the full round-trip: sync **ACCEPTED** → async
 **CommandResult** → a real **Session** push → (on stop) a real **CDR** push.
 
-**Why it just works: the seed already aligns.** `apps/ocpi-server/seeders/20250822120003-basic-objects.ts`
+**Why it just works: the seed already aligns.** `apps/ocpi-server/db/seeders/20250822120003-basic-objects.ts`
 seeds Location `1` / Station `cp001` / EVSE `cp001::1` / Connector `1` under the
 `US/TST` partner, plus an Accepted `ISO14443` authorization `DEADBEEF`. That is
 exactly the station EVerest registers as at `ws://host.docker.internal:8081/cp001`.
@@ -394,12 +394,13 @@ the same endpoints documented above. It is the human-facing twin of the harness:
 everything a Cypress/vitest test does over HTTP, the dashboard does with a click.
 
 > **Dashboard run gotchas** (respect exactly):
+>
 > - **Run compiled, not `tsx`.** Start the server with `node dist/index.js`
 >   (`pnpm --filter @citrineos/mock-msp start`), not `tsx` — see Quick start.
 > - **Restart, don't rebuild, after editing the HTML.** `dashboard.html` is read
 >   **once at boot**. A `tsc` rebuild does nothing for it; you must **restart the
 >   process** (`bash apps/mock-msp/scripts/demo-down.sh && bash
->   apps/mock-msp/scripts/demo-up.sh`) and **hard-refresh** the browser
+apps/mock-msp/scripts/demo-up.sh`) and **hard-refresh** the browser
 >   (Ctrl+Shift+R).
 > - On older Node, prefix pnpm/npx steps with `npm_config_engine_strict=false`.
 
@@ -432,7 +433,7 @@ A few **quick-fill chips** pre-fill the builder for the common cases; they do
 
 ### 2. Provoke panel — "can we do both directions?" (yes)
 
-The mock is not only *reactive*. The **Provoke** panel makes Citrine originate
+The mock is not only _reactive_. The **Provoke** panel makes Citrine originate
 traffic on demand, so **the Citrine→mock direction is exercised with one click**,
 no live charging session and no terminal required:
 
@@ -441,10 +442,10 @@ no live charging session and no terminal required:
 
 **Mechanism.** `/_mock/provoke/:what` performs a **raw `fetch` to Citrine's
 Hasura GraphQL** (`citrineHasuraUrl`, default `http://localhost:8090/v1/graphql`,
-dev-mode/unauthenticated) — *not* an OCPI call, so the provoke itself is **not**
+dev-mode/unauthenticated) — _not_ an OCPI call, so the provoke itself is **not**
 recorded as an OCPI exchange. The DB write to the `Locations` table fires
 Citrine's `pgNotify` → OCPI broadcaster, which then makes a **real inbound
-`PUT`/`PATCH`** to the mock's `/ocpi/2.2.1/emsp/locations` — and *that* inbound
+`PUT`/`PATCH`** to the mock's `/ocpi/2.2.1/emsp/locations` — and _that_ inbound
 call is validated and recorded like any other. `location-add` inserts a row with
 4-decimal coordinates and reproduces the coordinates finding on the `PUT`;
 `location-nudge` bumps an existing row's `name`/`updatedAt` and yields a clean
@@ -476,10 +477,10 @@ at once.
 
 The **Send command** control seeds a **schema-valid default** for the selected
 type (e.g. a full `TokenDTO` + `location_id` for `START_SESSION`), merged
-*under* any JSON you type so your overrides win. An empty `{}` now produces a
+_under_ any JSON you type so your overrides win. An empty `{}` now produces a
 well-formed command Citrine actually parses (a proper sync `ACCEPTED`/`REJECTED`
 `CommandResponse`) instead of a `400`. With EVerest connected the **async**
-command *result* now completes too — see §Live charging with EVerest.
+command _result_ now completes too — see §Live charging with EVerest.
 
 ### 5. Token round-trip: push, block, verify
 
@@ -510,14 +511,14 @@ whether the old token now yields a 401 on the stale-token probe.
 ## Spec probes
 
 `GET /_mock/probes` runs semantic checks that schema validation cannot make —
-each is spec-*legal* on the wire, so the Zod layer passes; the defect only shows
+each is spec-_legal_ on the wire, so the Zod layer passes; the defect only shows
 against Citrine's own DB state or the spec's stated meaning:
 
-| Probe | What it checks |
-|---|---|
-| `evse-availability` | Reads the first connector's status from Citrine's DB (Hasura) and compares with the OCPI-published EVSE status. Citrine has no OCPI mapping for its internal `Occupied`, so a busy charger publishes as `UNKNOWN` — an eMSP shows drivers a dead pin for a charging station. |
-| `pagination-total` | `GET locations?offset=0&limit=2`: `X-Total-Count` must be the size of the whole result set (OCPI 4.1.4.1), not the page — otherwise a paging client stops after page one. Also reports `Link` header presence. |
-| `string-location-id` | `GET /locations/LOC1` — a non-numeric id is legal per spec (string type); expects a clean 404 / OCPI 2003, not a 500. A 401 marks the probe inconclusive rather than green. |
+| Probe                | What it checks                                                                                                                                                                                                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `evse-availability`  | Reads the first connector's status from Citrine's DB (Hasura) and compares with the OCPI-published EVSE status. Citrine has no OCPI mapping for its internal `Occupied`, so a busy charger publishes as `UNKNOWN` — an eMSP shows drivers a dead pin for a charging station. |
+| `pagination-total`   | `GET locations?offset=0&limit=2`: `X-Total-Count` must be the size of the whole result set (OCPI 4.1.4.1), not the page — otherwise a paging client stops after page one. Also reports `Link` header presence.                                                               |
+| `string-location-id` | `GET /locations/LOC1` — a non-numeric id is legal per spec (string type); expects a clean 404 / OCPI 2003, not a 500. A 401 marks the probe inconclusive rather than green.                                                                                                  |
 
 Failing probes are mirrored into the findings ledger as `error` findings tagged
 `[probe-id]`, deduped by id so re-runs update the verdict in place.
@@ -534,7 +535,7 @@ The pattern is always the same three beats:
 3. **Await + assert** on the recorded `Exchange` via `waitForReceived`.
 
 `waitForReceived` is race-free: it scans already-arrived traffic from
-`filter.minSeq` first, then registers a waiter — so you can trigger *then* wait
+`filter.minSeq` first, then registers a waiter — so you can trigger _then_ wait
 without missing the event. On timeout it returns **near-misses** ("got a PUT but
 from the wrong `party_id`") so async failures are debuggable.
 
@@ -553,8 +554,10 @@ const send = await fetch(`${MOCK}/_mock/commands/START_SESSION`, {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({
-    response_url: 'PLACEHOLDER',           // the mock fills the real response_url
-    token: { /* TokenDTO */ },
+    response_url: 'PLACEHOLDER', // the mock fills the real response_url
+    token: {
+      /* TokenDTO */
+    },
     location_id: 'LOC1',
   }),
 }).then((r) => r.json());
@@ -573,8 +576,8 @@ const waited = await fetch(`${MOCK}/_mock/exchanges/wait`, {
 const exchange = await waited.json();
 
 // 3) Assert on what Citrine sent us.
-expect(exchange.request.body.result).toBe('ACCEPTED');   // Citrine's CommandResult
-expect(exchange.validation.ok).toBe(true);               // it matched CommandResultSchema
+expect(exchange.request.body.result).toBe('ACCEPTED'); // Citrine's CommandResult
+expect(exchange.validation.ok).toBe(true); // it matched CommandResultSchema
 ```
 
 **Fault injection** — prove Citrine mishandles a deviation. Arm a fault, let
@@ -589,16 +592,21 @@ await fetch(`${MOCK}/_mock/faults`, {
     id: 'drop-auth-ref',
     enabled: true,
     match: { direction: 'inbound', module: 'tokens', method: 'POST', pathMatches: 'authorize' },
-    action: { kind: 'malformBody', mutation: 'dropRequired', targetPath: 'data.authorization_reference' },
+    action: {
+      kind: 'malformBody',
+      mutation: 'dropRequired',
+      targetPath: 'data.authorization_reference',
+    },
   }),
 });
 // ... now cause Citrine to run a real-time authorize (e.g. present an RFID at a
 // simulated charger, or via Citrine's admin API) ...
 const ex = await fetch(`${MOCK}/_mock/exchanges/wait`, {
-  method: 'POST', headers: { 'content-type': 'application/json' },
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ filter: { operation: 'tokens.authorize' }, timeoutMs: 8000 }),
 }).then((r) => r.json());
-expect(ex.fault.ruleId).toBe('drop-auth-ref');                 // the fault fired
+expect(ex.fault.ruleId).toBe('drop-auth-ref'); // the fault fired
 expect(ex.response.body.data.authorization_reference).toBeUndefined();
 // Citrine's schema.parse then throws CPO-side — assert that via Citrine's own logs/API.
 ```
@@ -624,7 +632,7 @@ const res = await app.inject({
 
 expect(res.json().status_code).toBe(1000);
 const ex = ctx.store.query({ operation: 'sessions.put' }).at(-1)!;
-expect(ex.validation.ok).toBe(true);                 // matched SessionSchema
+expect(ex.validation.ok).toBe(true); // matched SessionSchema
 expect(ctx.store.domain.sessions.get('SESSION-1')).toBeDefined();
 ```
 
@@ -645,30 +653,36 @@ with `MOCK_MSP_SCENARIO=scenarios/<name>.json`, or hot-load at runtime with
 
 ### Shipped fixtures
 
-| File | Purpose |
-|---|---|
-| `scenarios/preregistered.json` | Already-registered baseline using the seed tokens (no handshake). |
-| `scenarios/unregistered.json` | Fresh state to drive the full credentials handshake (pair with `MOCK_MSP_AUTO_REGISTER=1`). |
-| `scenarios/authorize-blocked.json` | `tokens/{uid}/authorize` returns `BLOCKED` for uid `04E7F5A2B37C80`, `ALLOWED` otherwise. |
-| `scenarios/known-bugs/authorization-reference-required.json` | Arms one fault dropping the (Citrine-required) `authorization_reference` from the authorize reply, to prove Citrine's `schema.parse` throws. |
-| `scenarios/known-bugs/patch-omits-valid-blocks-token.json` | No faults — documents the PATCH-omits-`valid` bug: a legal partial tokens `PATCH` (e.g. only `language`) is accepted with `1000` but silently flips the token to Invalid in Citrine's DB. Repro: `/_mock/emit/token` → `/_mock/emit/token-patch {"patch":{"language":"en"}}` → `/_mock/verify/token`. |
+| File                                                         | Purpose                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scenarios/preregistered.json`                               | Already-registered baseline using the seed tokens (no handshake).                                                                                                                                                                                                                                     |
+| `scenarios/unregistered.json`                                | Fresh state to drive the full credentials handshake (pair with `MOCK_MSP_AUTO_REGISTER=1`).                                                                                                                                                                                                           |
+| `scenarios/authorize-blocked.json`                           | `tokens/{uid}/authorize` returns `BLOCKED` for uid `04E7F5A2B37C80`, `ALLOWED` otherwise.                                                                                                                                                                                                             |
+| `scenarios/known-bugs/authorization-reference-required.json` | Arms one fault dropping the (Citrine-required) `authorization_reference` from the authorize reply, to prove Citrine's `schema.parse` throws.                                                                                                                                                          |
+| `scenarios/known-bugs/patch-omits-valid-blocks-token.json`   | No faults — documents the PATCH-omits-`valid` bug: a legal partial tokens `PATCH` (e.g. only `language`) is accepted with `1000` but silently flips the token to Invalid in Citrine's DB. Repro: `/_mock/emit/token` → `/_mock/emit/token-patch {"patch":{"language":"en"}}` → `/_mock/verify/token`. |
 
 ### Scenario shape
 
 ```jsonc
 {
   "name": "authorize-blocked",
-  "registration": "preregistered",          // | "unregistered"
-  "identity": { /* optional Partial<OcpiIdentity> override */ },
-  "authorize": {                            // tokens/{uid}/authorize policy
-    "default": "ALLOWED",                   // ALLOWED|BLOCKED|EXPIRED|NO_CREDIT|NOT_ALLOWED
-    "byUid": { "04E7F5A2B37C80": "BLOCKED" }
+  "registration": "preregistered", // | "unregistered"
+  "identity": {
+    /* optional Partial<OcpiIdentity> override */
   },
-  "strictInbound": false,                   // true => schema-invalid inbound body => 2001 (else record-and-accept)
-  "faults": [ /* FaultRule[] — see below */ ],
-  "expect": [                               // the assertion oracle
-    { "on": "tokens.authorize", "assert": "response.body.data.allowed == BLOCKED" }
-  ]
+  "authorize": {
+    // tokens/{uid}/authorize policy
+    "default": "ALLOWED", // ALLOWED|BLOCKED|EXPIRED|NO_CREDIT|NOT_ALLOWED
+    "byUid": { "04E7F5A2B37C80": "BLOCKED" },
+  },
+  "strictInbound": false, // true => schema-invalid inbound body => 2001 (else record-and-accept)
+  "faults": [
+    /* FaultRule[] — see below */
+  ],
+  "expect": [
+    // the assertion oracle
+    { "on": "tokens.authorize", "assert": "response.body.data.allowed == BLOCKED" },
+  ],
 }
 ```
 
@@ -688,9 +702,18 @@ prefixed `registration.`, against the live domain state
 {
   "id": "drop-authorization-reference",
   "enabled": true,
-  "match": { "direction": "inbound", "module": "tokens", "method": "POST", "pathMatches": "authorize" },
-  "scope": { "times": 1, "afterSeq": 0, "probability": 1 },   // all optional
-  "action": { "kind": "malformBody", "mutation": "dropRequired", "targetPath": "data.authorization_reference" }
+  "match": {
+    "direction": "inbound",
+    "module": "tokens",
+    "method": "POST",
+    "pathMatches": "authorize",
+  },
+  "scope": { "times": 1, "afterSeq": 0, "probability": 1 }, // all optional
+  "action": {
+    "kind": "malformBody",
+    "mutation": "dropRequired",
+    "targetPath": "data.authorization_reference",
+  },
 }
 ```
 
@@ -753,11 +776,11 @@ observing Citrine's CPO-side behavior:
    5–7 (`/-?[0-9]{1,2}\.[0-9]{5,7}/`). Reproduces on **both** paths the dashboard
    exposes: **Pull locations** (Citrine's SENDER response) and **Provoke →
    location-add** (a real inbound `PUT`). It hits every location and every nested
-   EVSE. High severity, one-line fix (the *value* is correct — it is a formatting
+   EVSE. High severity, one-line fix (the _value_ is correct — it is a formatting
    bug on a mandatory field) — but it blocks certification and any spec-strict
    partner. **Passive finding, no fault armed.**
 10. **`GET /cdrs` omits `status_code` + `timestamp`** from the OCPI envelope while
-    `/sessions` and `/tariffs` on the *same server* include them — Citrine is
+    `/sessions` and `/tariffs` on the _same server_ include them — Citrine is
     inconsistent with itself. Surfaced by **Pull CDRs** / **Pull all**. An interop
     break, not a formatting nit (a client doing `if (res.status_code === 1000)`
     reads a successful empty list as a failure). **Passive finding**; observed on
@@ -775,6 +798,13 @@ observing Citrine's CPO-side behavior:
     500s** — the three semantic gaps the spec probes check for; see §Spec
     probes for the mechanics and consequences of each.
 
+13. **EVSE served with an empty `connectors` array.** OCPI 2.2.1 requires at
+    least one connector per EVSE, but `EvseMapper.fromGraphql` drops connectors
+    that fail its own validation and then returns the EVSE anyway — its
+    `return;` for the no-valid-connectors case is commented out with a
+    `// TODO: solve this case`. The pulled Locations payload then fails the
+    @citrineos/ocpi schema at `data[].evses[].connectors`.
+
 ---
 
 ## Environment variables
@@ -782,27 +812,27 @@ observing Citrine's CPO-side behavior:
 All optional; defaults (from `src/config.ts`) match the seed and the native
 workflow.
 
-| Var | Default | Meaning |
-|---|---|---|
-| `MOCK_MSP_PORT` / `MOCK_MSP_HOST` | `8083` / `0.0.0.0` | listen address |
-| `MOCK_MSP_PUBLIC_BASE_URL` | `http://host.docker.internal:8083/ocpi` | advertised base URL |
-| `CITRINE_OCPI_BASE_URL` | `http://localhost:8085/ocpi` | Citrine CPO OCPI base |
-| `CITRINE_TENANT_ID` | `1` | tenant id in the default versions URL |
-| `CITRINE_VERSIONS_URL` | `${CITRINE_OCPI_BASE_URL}/versions/${CITRINE_TENANT_ID}` | registration entry point (also the OCPI reachability probe) |
-| `CITRINE_HASURA_URL` | `http://localhost:8090/v1/graphql` | Citrine's Hasura GraphQL (used by `/_mock/provoke/*`, `/_mock/status`, and the spec probes) |
-| `MOCK_MSP_COUNTRY_CODE` / `MOCK_MSP_PARTY_ID` | `US` / `TST` | our eMSP identity |
-| `MOCK_MSP_CPO_COUNTRY_CODE` / `MOCK_MSP_CPO_PARTY_ID` | `US` / `S44` | Citrine CPO identity |
-| `MOCK_MSP_CLIENT_TOKEN` | seed `credentials.token` | token we accept inbound |
-| `MOCK_MSP_SERVER_TOKEN` | seed `serverCredentials.token` | token we present outbound |
-| `MOCK_MSP_SCENARIO` | _(unset)_ | scenario file to load at boot |
-| `MOCK_MSP_AUTO_REGISTER` | `0` | `1` = auto-handshake at boot (unregistered scenarios) |
-| `MOCK_MSP_LOG_LEVEL` | `info` | pino level |
-| `MOCK_MSP_CONTROL_SECRET` | _(unset)_ | shared secret for `/_mock/*` |
-| `MOCK_MSP_DEFAULT_LOCATION_ID` | `1` | default `location_id` for commands / charge flows |
-| `MOCK_MSP_DEFAULT_EVSE_UID` | `cp001::1` | default `evse_uid` (the seeded EVerest station) |
-| `MOCK_MSP_DEFAULT_CONNECTOR_ID` | `1` | default `connector_id` |
-| `MOCK_MSP_DEFAULT_TOKEN_UID` | `DEADBEEF` | default token uid (seeded, Accepted, ISO14443-valid) |
-| `MOCK_MSP_DEFAULT_TOKEN_TYPE` | `RFID` | default OCPI token type |
+| Var                                                   | Default                                                  | Meaning                                                                                     |
+| ----------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `MOCK_MSP_PORT` / `MOCK_MSP_HOST`                     | `8083` / `0.0.0.0`                                       | listen address                                                                              |
+| `MOCK_MSP_PUBLIC_BASE_URL`                            | `http://host.docker.internal:8083/ocpi`                  | advertised base URL                                                                         |
+| `CITRINE_OCPI_BASE_URL`                               | `http://localhost:8085/ocpi`                             | Citrine CPO OCPI base                                                                       |
+| `CITRINE_TENANT_ID`                                   | `1`                                                      | tenant id in the default versions URL                                                       |
+| `CITRINE_VERSIONS_URL`                                | `${CITRINE_OCPI_BASE_URL}/versions/${CITRINE_TENANT_ID}` | registration entry point (also the OCPI reachability probe)                                 |
+| `CITRINE_HASURA_URL`                                  | `http://localhost:8090/v1/graphql`                       | Citrine's Hasura GraphQL (used by `/_mock/provoke/*`, `/_mock/status`, and the spec probes) |
+| `MOCK_MSP_COUNTRY_CODE` / `MOCK_MSP_PARTY_ID`         | `US` / `TST`                                             | our eMSP identity                                                                           |
+| `MOCK_MSP_CPO_COUNTRY_CODE` / `MOCK_MSP_CPO_PARTY_ID` | `US` / `S44`                                             | Citrine CPO identity                                                                        |
+| `MOCK_MSP_CLIENT_TOKEN`                               | seed `credentials.token`                                 | token we accept inbound                                                                     |
+| `MOCK_MSP_SERVER_TOKEN`                               | seed `serverCredentials.token`                           | token we present outbound                                                                   |
+| `MOCK_MSP_SCENARIO`                                   | _(unset)_                                                | scenario file to load at boot                                                               |
+| `MOCK_MSP_AUTO_REGISTER`                              | `0`                                                      | `1` = auto-handshake at boot (unregistered scenarios)                                       |
+| `MOCK_MSP_LOG_LEVEL`                                  | `info`                                                   | pino level                                                                                  |
+| `MOCK_MSP_CONTROL_SECRET`                             | _(unset)_                                                | shared secret for `/_mock/*`                                                                |
+| `MOCK_MSP_DEFAULT_LOCATION_ID`                        | `1`                                                      | default `location_id` for commands / charge flows                                           |
+| `MOCK_MSP_DEFAULT_EVSE_UID`                           | `cp001::1`                                               | default `evse_uid` (the seeded EVerest station)                                             |
+| `MOCK_MSP_DEFAULT_CONNECTOR_ID`                       | `1`                                                      | default `connector_id`                                                                      |
+| `MOCK_MSP_DEFAULT_TOKEN_UID`                          | `DEADBEEF`                                               | default token uid (seeded, Accepted, ISO14443-valid)                                        |
+| `MOCK_MSP_DEFAULT_TOKEN_TYPE`                         | `RFID`                                                   | default OCPI token type                                                                     |
 
 Script knobs (not read by the server): `MSP_PID_FILE`, `MSP_LOG_FILE`,
 `MSP_HEALTH_TIMEOUT` (demo-up/down), `OCPP_VERSION`, `EVEREST_IMAGE_TAG`,
@@ -816,8 +846,8 @@ Script knobs (not read by the server): `MSP_PID_FILE`, `MSP_LOG_FILE`,
 **In-repo (hermetic — no docker, no live Citrine):**
 
 - **Compiles clean** — `tsc -b apps/mock-msp/tsconfig.json` → exit 0.
-- **Self-tests pass** — `pnpm --filter @citrineos/mock-msp test` → **11 test
-  files, 68 tests**. Coverage: both credentials handshakes + rotation with the
+- **Self-tests pass** — `pnpm --filter @citrineos/mock-msp test` → **27 test
+  files, 248 tests**. Coverage: both credentials handshakes + rotation with the
   stale-token probe; fault injection (`ocpiStatus`/`httpStatus`/`malformBody`,
   scope `times`, disarm); functional RECEIVER/SENDER modules (good body stored +
   `validation.ok:true`, bad body → `Finding`; bad token → 401/2002; wrong
@@ -828,7 +858,19 @@ Script knobs (not read by the server): `MSP_PID_FILE`, `MSP_LOG_FILE`,
   a stub CPO (incl. the CDR pull fallback and per-cycle seq floors); token
   push/patch/verify; coverage + provoke + status aggregation; and the `expect[]`
   oracle over every shipped fixture. The suite drives the app via
-  `app.inject()` with a stub CPO — nothing needs the live stack.
+  `app.inject()` with a stub CPO — nothing needs the live stack. The rest of
+  the control API (state/received/wait/scenario/authorize/register/pull…), the
+  control secret, every fault kind (abort/delay over a real socket), the
+  remaining OCPI receivers and readers, the dispatcher edge cases, the charge
+  flow's degraded branches, the spec probes, the scenario grammar, the Store
+  ring buffer, the wire log, `loadConfig`, the dashboard routes and the built
+  entrypoint (spawned `dist/index.js`) are covered the same way.
+- **Dashboard** — Playwright (`test:e2e`, 34 specs) against a mock it boots
+  itself: header/cards/coverage grid, the wire trace filters and detail rows,
+  the fault builder, the actor/charging/probe buttons with Citrine down, the
+  control secret, the poll loop surviving an outage.
+- **Live** — `test:live` (41 tests) and `test:everest` (10) run in CI against
+  the real stack; see the CI section.
 
 **Live against a running CitrineOS + EVerest (all reproduced on the dev stack):**
 
@@ -842,3 +884,49 @@ Script knobs (not read by the server): `MSP_PID_FILE`, `MSP_LOG_FILE`,
 - Every rough-edge in the list above that is marked as observed, including the
   coordinates finding, the CDR envelope inconsistency, and the PATCH-omits-
   `valid` token block.
+
+---
+
+## CI
+
+`.github/workflows/mock-msp.yml` (workflow name **Mock eMSP**) runs on pull
+requests, on every push to `next`, nightly and on `workflow_dispatch`. Lanes:
+
+| job | what | when (PR) |
+|---|---|---|
+| `unit` | build closure, `typecheck:all`, lint, shellcheck, the hermetic vitest suite (`test/`), a curl-driven process smoke (`scripts/demo-seed.sh` against a natively started mock) and the entrypoint failure paths | `apps/mock-msp/**`, `packages/{types,base,ocpp,ocpi}/**`, shared config |
+| `docker-image` | builds the compose `mock-msp` service from `deploy.Dockerfile`, boots it alone, checks `/_mock/health` + the dashboard | same + compose files |
+| `dashboard` | Playwright against the dashboard (`e2e/*.e2e.ts`, project `dashboard`); the mock is started by Playwright's `webServer`, no Citrine behind it | `apps/mock-msp/**`, shared config |
+| `live` | the real stack (`docker compose … --profile ocpi`: citrine, citrineos-ocpi, hasura), the OCPI seeders, then the mock natively on `:8083` and `test-live/pr/*.live.ts` | `apps/mock-msp/**`, `packages/ocpi/**`, `apps/ocpi-server/**`, compose files |
+| `everest` | `live` plus EVerest as `cp001`: `test-live/everest/*.live.ts` (plug → START_SESSION → Session → STOP_SESSION → CDR) and the `@live`/`@everest` dashboard specs | push to `next`, nightly, dispatch, or the PR label `ci:mock-msp-everest` |
+| `mock-msp-ci` | aggregate status — the one check to require on `next` | always |
+
+`schedule` and `workflow_dispatch` only fire once the workflow file exists on the
+repository's default branch (`main`); until then the label is the way to run the
+EVerest lane on a PR.
+
+Two things the live lanes need that nothing else in the repo does: the OCPI
+seeders (`docker compose … exec -e OCPI_ENV=docker citrineos-ocpi pnpm run db:seed`
+— the containers only migrate), and `host.docker.internal` resolvable from the
+`citrineos-ocpi` container (`extra_hosts` in `docker-compose.local.yml`; the
+partner seed hardcodes it).
+
+Run the same things locally:
+
+```bash
+pnpm --filter @citrineos/mock-msp test            # hermetic
+pnpm --filter @citrineos/mock-msp test:e2e        # dashboard (boots its own mock on :18083)
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile ocpi \
+  up -d --build citrine citrineos-ocpi graphql-engine   # stack without the mock container
+bash apps/mock-msp/scripts/ci/seed-citrine.sh     # once per fresh DB
+bash apps/mock-msp/scripts/ci/mock-up.sh          # native mock on :8083
+pnpm --filter @citrineos/mock-msp test:live       # test-live/pr
+bash apps/mock-msp/scripts/everest-up.sh && pnpm --filter @citrineos/mock-msp test:everest
+```
+
+Live runs tolerate the documented Citrine defects listed above through
+`test-live/support/known-findings.ts`; any other error-level finding fails the
+lane. When one of those defects gets fixed upstream, drop its entry there.
+Artifacts (`reports/`, `playwright-report/`) carry the junit files, the mock's
+NDJSON wire log, the `/_mock/exchanges|findings|coverage|probes|status` dumps and
+the compose logs.

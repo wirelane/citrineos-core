@@ -15,13 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       base: ${{ steps.filter.outputs.base }}
-      core: ${{ steps.filter.outputs.core }}
+      dal: ${{ steps.filter.outputs.dal }}
+      ocpp: ${{ steps.filter.outputs.ocpp }}
       server: ${{ steps.filter.outputs.server }}
       operator-ui: ${{ steps.filter.outputs.operator-ui }}
       shared: ${{ steps.filter.outputs.shared }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -35,11 +36,17 @@ jobs:
               - '.github/workflows/**'
             base:
               - 'packages/base/**'
-            core:
-              - 'packages/core/**'
+            dal:
+              - 'packages/dal/**'
+              - 'packages/base/**'
+            ocpp:
+              - 'packages/ocpp/**'
+              - 'packages/dal/**'
               - 'packages/base/**'
             server:
               - 'apps/ocpp-server/**'
+              - 'apps/ocpi-server/**'
+              - 'apps/mock-msp/**'
               - 'packages/**'
             operator-ui:
               - 'apps/operator-ui/**'
@@ -47,20 +54,20 @@ jobs:
 
   tests:
     needs: changes
-    if: ${{ needs.changes.outputs.base == 'true' || needs.changes.outputs.core == 'true' || needs.changes.outputs.server == 'true' || needs.changes.outputs.shared == 'true' }}
+    if: ${{ needs.changes.outputs.base == 'true' || needs.changes.outputs.dal == 'true' || needs.changes.outputs.ocpp == 'true' || needs.changes.outputs.server == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.19.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.16.0'
           cache: 'pnpm'
@@ -74,7 +81,18 @@ jobs:
       - name: Run tests
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: pnpm test
+        run: pnpm run test:coverage
+
+      - name: Upload test and coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-report
+          path: |
+            coverage/
+            reports/
+          retention-days: 14
+          if-no-files-found: warn
 
   operator-ui-e2e:
     needs: changes
@@ -84,15 +102,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.19.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.16.0'
           cache: 'pnpm'
@@ -103,12 +121,16 @@ jobs:
       - name: Build @citrineos/operator-ui and its workspace deps
         run: pnpm --filter "@citrineos/operator-ui..." run build
 
+      - name: Resolve Playwright version
+        id: playwright-version
+        working-directory: apps/operator-ui
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('apps/operator-ui/package.json') }}
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -172,7 +194,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: operator-ui-playwright-report
           path: |
@@ -199,15 +221,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.19.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.16.0'
           cache: 'pnpm'
@@ -218,12 +240,16 @@ jobs:
       - name: Build @citrineos/operator-ui and its workspace deps
         run: pnpm --filter "@citrineos/operator-ui..." run build
 
+      - name: Resolve Playwright version
+        id: playwright-version
+        working-directory: apps/operator-ui
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('apps/operator-ui/package.json') }}
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -322,11 +348,11 @@ jobs:
           EVEREST_IMAGE_TAG: 2025.6.1-dt-esdp
           CITRINE_CORE_PATH: ${{ github.workspace }}/apps/ocpp-server
         working-directory: apps/operator-ui
-        run: pnpm exec playwright test --project=everest-serial
+        run: pnpm exec playwright test --project=everest-serial --max-failures=3
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: operator-ui-everest-playwright-report
           path: |
@@ -336,7 +362,7 @@ jobs:
           retention-days: 7
 
       - name: Dump backend + EVerest logs on failure
-        if: failure()
+        if: always()
         run: |
           docker ps -a
           echo "=== full everest-manager-1 logs (first boot included) ==="

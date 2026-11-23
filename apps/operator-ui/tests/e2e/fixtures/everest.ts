@@ -17,8 +17,6 @@ import { makeApiClient, type ApiClient } from './api-client';
 //   ChargingStations.ocppConnectionName   — string identifier ('cp001')
 //   Child tables (Evses / Connectors / StatusNotifications / OCPPMessages):
 //     stationId (int)          — FK to ChargingStations.id
-//     ocppConnectionName       — string identifier (trigger-populated from
-//                                ocppConnectionName + tenantId)
 
 const EVEREST_OCPP_CONNECTION_NAME = 'cp001';
 // The EVerest SIL stack runs an internal MQTT broker (everest_net, not host-
@@ -48,6 +46,8 @@ const POLL_INTERVAL_MS = 2_000;
 // few seconds after `compose up`; this bounds the wait so a manager that never
 // boots fails fast into awaitStationOnline's diagnostics rather than hanging.
 const DB_READY_TIMEOUT_MS = 60_000;
+const SQLITE_BUSY_TIMEOUT_MS = 30_000;
+const SQLITE_PATCH_ATTEMPTS = 3;
 
 export interface EverestHandle {
   readonly ocppConnectionName: string;
@@ -86,16 +86,18 @@ async function awaitStationOnline(
       const data = await api.gql<{
         ChargingStations: { id: number; ocppConnectionName: string }[];
         StatusNotifications: {
-          ocppConnectionName: string;
           timestamp: string;
         }[];
       }>(
         `query EverestProbe($name: String!, $since: timestamptz!) {
            ChargingStations(where: { ocppConnectionName: { _eq: $name } }) { id ocppConnectionName }
            StatusNotifications(
-             where: { ocppConnectionName: { _eq: $name }, timestamp: { _gte: $since } }
+             where: {
+               ChargingStation: { ocppConnectionName: { _eq: $name } }
+               timestamp: { _gte: $since }
+             }
              limit: 1
-           ) { ocppConnectionName timestamp }
+           ) { timestamp }
          }`,
         { name: ocppConnectionName, since: fixtureStart },
       );
@@ -184,6 +186,29 @@ export async function waitForEverestOffline(timeoutMs: number): Promise<void> {
   } finally {
     await api.dispose();
   }
+}
+
+// Prints the manager container's recent output. The worker handle's `stop()`
+// runs `docker compose down`, so the container is already gone by the time the
+// workflow's own dump step runs — a boot failure has to be captured here, while
+// it still exists, or nothing ever explains why cp001 failed to register.
+function dumpEverestManagerLogs(tailLines = 200): Promise<void> {
+  return new Promise((res) => {
+    const proc = spawn(
+      process.platform === 'win32' ? 'docker.exe' : 'docker',
+      ['logs', '--tail', String(tailLines), 'everest-manager-1'],
+      { stdio: ['ignore', 'pipe', 'pipe'], shell: false },
+    );
+    let output = '';
+    proc.stdout?.on('data', (c: Buffer) => (output += c.toString()));
+    proc.stderr?.on('data', (c: Buffer) => (output += c.toString()));
+    const report = () => {
+      console.warn(`[e2e:everest] last ${tailLines} lines of everest-manager-1:\n${output}`);
+      res();
+    };
+    proc.on('exit', report);
+    proc.on('error', report);
+  });
 }
 
 function restartEverestManager(): Promise<void> {
@@ -319,24 +344,43 @@ async function patchEverestNetworkProfile(): Promise<void> {
   }
 
   const escaped = CORRECT_NETWORK_PROFILE_JSON.replace(/'/g, "''");
-  const sql = `UPDATE VARIABLE_ATTRIBUTE SET VALUE='${escaped}' WHERE VARIABLE_ID = (SELECT ID FROM VARIABLE WHERE NAME='NetworkConnectionProfiles');\n`;
+  // The manager holds the same database open, so the write waits for its lock rather than failing
+  // on the first SQLITE_BUSY. The retry covers a lock held for longer than the pragma waits.
+  const sql =
+    `PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS};` +
+    `UPDATE VARIABLE_ATTRIBUTE SET VALUE='${escaped}' WHERE VARIABLE_ID = (SELECT ID FROM VARIABLE WHERE NAME='NetworkConnectionProfiles');`;
   // Pipe SQL via stdin to avoid shell quoting hell with the embedded JSON.
-  await new Promise<void>((res, rej) => {
-    const proc = spawn(
-      process.platform === 'win32' ? 'docker.exe' : 'docker',
-      ['exec', '-i', 'everest-manager-1', 'sqlite3', EVEREST_DEVICE_MODEL_DB],
-      { stdio: ['pipe', 'pipe', 'pipe'], shell: false },
-    );
-    let stderr = '';
-    proc.stderr?.on('data', (c: Buffer) => (stderr += c.toString()));
-    proc.on('exit', (code) => {
-      if (code === 0) res();
-      else rej(new Error(`SQLite patch failed (code ${code}): ${stderr}`));
-    });
-    proc.on('error', rej);
-    proc.stdin?.write(sql);
-    proc.stdin?.end();
-  });
+  let lastFailure: Error | undefined;
+  for (let attempt = 1; attempt <= SQLITE_PATCH_ATTEMPTS; attempt++) {
+    try {
+      await new Promise<void>((res, rej) => {
+        const proc = spawn(
+          process.platform === 'win32' ? 'docker.exe' : 'docker',
+          ['exec', '-i', 'everest-manager-1', 'sqlite3', EVEREST_DEVICE_MODEL_DB],
+          { stdio: ['pipe', 'pipe', 'pipe'], shell: false },
+        );
+        let stderr = '';
+        proc.stderr?.on('data', (c: Buffer) => (stderr += c.toString()));
+        proc.on('exit', (code) => {
+          if (code === 0) res();
+          else rej(new Error(`SQLite patch failed (code ${code}): ${stderr}`));
+        });
+        proc.on('error', rej);
+        proc.stdin?.write(sql);
+        proc.stdin?.end();
+      });
+      lastFailure = undefined;
+      break;
+    } catch (error) {
+      lastFailure = error as Error;
+      if (attempt < SQLITE_PATCH_ATTEMPTS) {
+        await delay(POLL_INTERVAL_MS);
+      }
+    }
+  }
+  if (lastFailure) {
+    throw lastFailure;
+  }
   await new Promise<void>((res) => {
     const proc = spawn(
       process.platform === 'win32' ? 'docker.exe' : 'docker',
@@ -425,7 +469,6 @@ async function ensureEverestEvseAndConnector(api: ApiClient, stationId: number):
       {
         obj: {
           stationId,
-          ocppConnectionName: EVEREST_OCPP_CONNECTION_NAME,
           evseTypeId: 1,
           removed: false,
           createdAt: now,
@@ -460,7 +503,6 @@ async function ensureEverestEvseAndConnector(api: ApiClient, stationId: number):
           evseId: evse.id,
           connectorId: 1,
           evseTypeConnectorId: 1,
-          ocppConnectionName: EVEREST_OCPP_CONNECTION_NAME,
           stationId,
           createdAt: now,
           updatedAt: now,
@@ -535,7 +577,12 @@ export async function startEverest(options: EverestStartOptions = {}): Promise<E
         `[e2e:everest] ${EVEREST_OCPP_CONNECTION_NAME} not up after compose — restarting the manager container`,
       );
       await restartEverestManager();
-      id = await awaitStationOnline(api, EVEREST_OCPP_CONNECTION_NAME, bootTimeoutMs * 2);
+      try {
+        id = await awaitStationOnline(api, EVEREST_OCPP_CONNECTION_NAME, bootTimeoutMs * 2);
+      } catch (error) {
+        await dumpEverestManagerLogs();
+        throw error;
+      }
     }
     await ensureEverestEvseAndConnector(api, id);
     await ensureEverestAuthorization(api);
