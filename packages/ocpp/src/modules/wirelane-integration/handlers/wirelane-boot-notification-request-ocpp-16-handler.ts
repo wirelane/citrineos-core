@@ -8,7 +8,7 @@ import {
   type IMessage,
 } from '@citrineos/base';
 import { type HandlerProperties, OCPP1_6, OCPP_CallAction, OCPPVersion } from '@citrineos/types';
-import { StationDiscoveryNotifier } from '@modules/WirelaneIntegration/src/module/StationDiscoveryNotifier.js';
+import type { StationDiscoveryNotifier } from '../station-discovery-notifier.js';
 
 /**
  * Observe-only: Configuration's own BootNotificationRequestOcpp16Handler still

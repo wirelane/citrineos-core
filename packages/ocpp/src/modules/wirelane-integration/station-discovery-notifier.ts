@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Wirelane GmbH
 //
 // SPDX-License-Identifier: Apache-2.0
-import type { BootstrapConfig } from '@citrineos/base';
 import type { SystemConfig } from '@citrineos/types';
 import type { ILogObj } from 'tslog';
 import { Logger } from 'tslog';
-import type { WebhookDispatcher } from '@modules/OcppRouter/src/module/webhook.dispatcher.js';
+import type { WirelaneWebhookDispatcher } from './wirelane-webhook-dispatcher.js';
 
 export type StationDiscoveryBody = {
   csms: 'citrineos';
@@ -19,9 +18,9 @@ export type StationDiscoveryBody = {
 };
 
 export interface StationDiscoveryNotifierDependencies {
-  config: BootstrapConfig & SystemConfig;
+  config: SystemConfig;
   logger?: Logger<ILogObj>;
-  webhookDispatcher: WebhookDispatcher;
+  webhookDispatcher: WirelaneWebhookDispatcher;
 }
 
 /**
@@ -31,7 +30,7 @@ export interface StationDiscoveryNotifierDependencies {
  */
 export class StationDiscoveryNotifier {
   private readonly _logger: Logger<ILogObj>;
-  private readonly _webhookDispatcher: WebhookDispatcher;
+  private readonly _webhookDispatcher: WirelaneWebhookDispatcher;
   private readonly _adapterBaseUrl?: string;
 
   constructor({ config, logger, webhookDispatcher }: StationDiscoveryNotifierDependencies) {
@@ -39,16 +38,15 @@ export class StationDiscoveryNotifier {
       ? logger.getSubLogger({ name: this.constructor.name })
       : new Logger<ILogObj>({ name: this.constructor.name });
     this._webhookDispatcher = webhookDispatcher;
-    this._adapterBaseUrl = config.modules.wirelane?.ocppAdapterBaseUrl;
+    this._adapterBaseUrl = config.wirelane?.ocppAdapterBaseUrl;
   }
 
   async notifyDiscoveredAndReload(body: StationDiscoveryBody): Promise<void> {
     const baseUrl = this._adapterBaseUrl;
     if (!baseUrl) {
-      this._logger.warn(
-        'Skipping ocpp-adapter discovery: modules.wirelane.ocppAdapterBaseUrl is not set',
-        { stationId: body.stationId },
-      );
+      this._logger.warn('Skipping ocpp-adapter discovery: wirelane.ocppAdapterBaseUrl is not set', {
+        stationId: body.stationId,
+      });
       return;
     }
 

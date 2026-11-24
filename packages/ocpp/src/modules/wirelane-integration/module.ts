@@ -15,11 +15,9 @@ export interface WirelaneIntegrationModuleDependencies extends OcppModuleDepende
 }
 
 /**
- * Observe-only BootNotification handler. Configuration still answers the
- * charger; this module's handlers (see WirelaneBootNotificationRequestOcpp2Handler
- * / WirelaneBootNotificationRequestOcpp16Handler) additionally POST station
- * identity to ocpp-adapter and reload live subscription maps so
- * StatusNotification is forwarded on the first websocket.
+ * Wirelane module (event group `wirelane`), handlers in `WIRELANE_HANDLERS` (register.ts):
+ * observes BootNotification (Configuration still answers it) to report the station to
+ * ocpp-adapter, and answers Authorize in place of EVDriver.
  */
 export class WirelaneIntegrationModule extends AbstractModule {
   constructor({

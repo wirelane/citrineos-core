@@ -1,32 +1,25 @@
 // SPDX-FileCopyrightText: 2026 Wirelane GmbH
 //
 // SPDX-License-Identifier: Apache-2.0
-import {
-  type IMessage,
-  type OCPP2_request_types,
-  type OCPP2_response_types,
-  OcppError,
-  recordAuthorizeResult,
-} from '@citrineos/base';
+import { type IMessage, OcppError, recordAuthorizeResult } from '@citrineos/base';
 import {
   AuthorizationStatusEnum,
   ErrorCode,
   type HandlerProperties,
   IdTokenEnum,
   type OCPP2_0_1,
+  type OCPP2_request_types,
+  type OCPP2_response_types,
 } from '@citrineos/types';
-import { validateIdToken } from '@/util/index.js';
-import { AuthorizeRequestOcpp201Handler } from './AuthorizeRequestOcpp201Handler.js';
-import {
-  maskIdToken,
-  type WirelaneAuthorizationClient,
-} from '@modules/WirelaneIntegration/src/module/WirelaneAuthorizationClient.js';
+import { validateIdToken } from '@util/index.js';
+import { AuthorizeRequestOcpp201Handler } from '@handlers/requests/2/authorize-request-ocpp-201-handler.js';
+import { maskIdToken, type WirelaneAuthorizationClient } from '../wirelane-authorization-client.js';
 
 type UpstreamDependencies = ConstructorParameters<typeof AuthorizeRequestOcpp201Handler>[0];
 
 /**
  * Answers OCPP 2.0.1 Authorize with the decision of ocpp-adapter (and thereby
- * charging-session-gateway) when `modules.wirelane.remoteAuthorization.enabled` is set, and
+ * charging-session-gateway) when `wirelane.remoteAuthorization.enabled` is set, and
  * falls back to the upstream local authorization otherwise.
  *
  * Deliberately NOT decorated with `@AsRequestHandler`: the decorator reaches the parent's

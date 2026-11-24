@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Wirelane GmbH
 //
 // SPDX-License-Identifier: Apache-2.0
-import type { BootstrapConfig } from '@citrineos/base';
 import type { SystemConfig } from '@citrineos/types';
 import type { ILogObj } from 'tslog';
 import { Logger } from 'tslog';
@@ -40,7 +39,7 @@ export type WirelaneAuthorizationDecision = {
 };
 
 export interface WirelaneAuthorizationClientDependencies {
-  config: BootstrapConfig & SystemConfig;
+  config: SystemConfig;
   logger?: Logger<ILogObj>;
 }
 
@@ -64,16 +63,16 @@ export class WirelaneAuthorizationClient {
     this._logger = logger
       ? logger.getSubLogger({ name: this.constructor.name })
       : new Logger<ILogObj>({ name: this.constructor.name });
-    const wirelane = config.modules.wirelane;
+    const wirelane = config.wirelane;
     this._adapterBaseUrl = wirelane?.ocppAdapterBaseUrl;
-    this._enabled = wirelane?.remoteAuthorization?.enabled ?? false;
+    this._enabled = wirelane?.remoteAuthorization?.enabled ?? true;
     this._timeoutMs =
       wirelane?.remoteAuthorization?.timeoutMs ?? DEFAULT_REMOTE_AUTHORIZATION_TIMEOUT_MS;
   }
 
   /**
    * Whether OCPP 2.0.1 authorization is delegated to ocpp-adapter
-   * (`modules.wirelane.remoteAuthorization.enabled`).
+   * (`wirelane.remoteAuthorization.enabled`).
    */
   isEnabled(): boolean {
     return this._enabled;
@@ -90,10 +89,7 @@ export class WirelaneAuthorizationClient {
 
     const baseUrl = this._adapterBaseUrl;
     if (!baseUrl) {
-      this._logger.error(
-        'Rejecting id token: modules.wirelane.ocppAdapterBaseUrl is not set',
-        logContext,
-      );
+      this._logger.error('Rejecting id token: wirelane.ocppAdapterBaseUrl is not set', logContext);
       return INVALID;
     }
 

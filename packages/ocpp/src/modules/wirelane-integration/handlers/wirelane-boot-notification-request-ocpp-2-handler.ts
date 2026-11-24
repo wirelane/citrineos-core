@@ -6,10 +6,14 @@ import {
   type AbstractHandlerDependencies,
   AsRequestHandler,
   type IMessage,
-  type OCPP2_request_types,
 } from '@citrineos/base';
-import { type HandlerProperties, OCPP_2_VER_LIST, OCPP_CallAction } from '@citrineos/types';
-import { StationDiscoveryNotifier } from '@modules/WirelaneIntegration/src/module/StationDiscoveryNotifier.js';
+import {
+  type HandlerProperties,
+  OCPP_2_VER_LIST,
+  OCPP_CallAction,
+  type OCPP2_request_types,
+} from '@citrineos/types';
+import type { StationDiscoveryNotifier } from '../station-discovery-notifier.js';
 
 /**
  * Observe-only: Configuration's own BootNotificationRequestOcpp2Handler still

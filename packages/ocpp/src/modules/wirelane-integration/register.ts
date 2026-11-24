@@ -2,86 +2,107 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import { asClass, asFunction, type AwilixContainer } from 'awilix';
+import { asClass, asFunction, type AwilixContainer, type Resolver } from 'awilix';
 import {
   type AbstractHandler,
+  type BuiltEndpoint,
+  buildEndpoints,
   buildHandlers,
+  type EndpointClass,
+  type EndpointResolverCradle,
   type HandlerClass,
   type HandlerResolverCradle,
 } from '@citrineos/base';
-import { OCPP_CallAction, type SystemConfig } from '@citrineos/types';
-import type { ILogObj, Logger } from 'tslog';
-import { StationDiscoveryNotifier } from './module/StationDiscoveryNotifier.js';
-import { WirelaneAuthorizationClient } from './module/WirelaneAuthorizationClient.js';
-import { WirelaneTransactionService } from './module/WirelaneTransactionService.js';
 import {
   AuthorizeRequestOcpp16Handler,
+  AuthorizeRequestOcpp201Handler,
   AuthorizeRequestOcpp21Handler,
-  WirelaneAuthorizeRequestOcpp201Handler,
-  WirelaneBootNotificationRequestOcpp16Handler,
-  WirelaneBootNotificationRequestOcpp2Handler,
 } from '@handlers/index.js';
-
-const WIRELANE_HANDLERS = [
-  WirelaneBootNotificationRequestOcpp16Handler,
-  WirelaneBootNotificationRequestOcpp2Handler,
-] satisfies ReadonlyArray<HandlerClass>;
+import { ActiveTransactionEndpoint } from './active-transaction-endpoint.js';
+import { WirelaneAuthorizeRequestOcpp201Handler } from './handlers/wirelane-authorize-request-ocpp-201-handler.js';
+import { WirelaneBootNotificationRequestOcpp16Handler } from './handlers/wirelane-boot-notification-request-ocpp-16-handler.js';
+import { WirelaneBootNotificationRequestOcpp2Handler } from './handlers/wirelane-boot-notification-request-ocpp-2-handler.js';
+import { WirelaneIntegrationModule } from './module.js';
+import { StationDiscoveryNotifier } from './station-discovery-notifier.js';
+import { WirelaneApi } from './wirelane-api.js';
+import { WirelaneAuthorizationClient } from './wirelane-authorization-client.js';
+import { WirelaneTransactionService } from './wirelane-transaction-service.js';
+import { WirelaneWebhookDispatcher } from './wirelane-webhook-dispatcher.js';
 
 /**
- * Authorize handlers this module takes over from EVDriver. Only 2.0.1 is delegated to
- * ocpp-adapter; 1.6 and 2.1 stay the upstream handlers, they only move module because EVDriver's
- * `excludedRequests` drops Authorize for every protocol.
+ * The handlers of the Wirelane module. It answers Authorize for every protocol instead of
+ * EVDriver: 2.0.1 with {@link WirelaneAuthorizeRequestOcpp201Handler}, 1.6 and 2.1 with the
+ * upstream handlers unchanged.
  */
-const WIRELANE_AUTHORIZE_HANDLERS = [
+export const WIRELANE_HANDLERS = [
+  WirelaneBootNotificationRequestOcpp16Handler,
+  WirelaneBootNotificationRequestOcpp2Handler,
   AuthorizeRequestOcpp16Handler,
   WirelaneAuthorizeRequestOcpp201Handler,
   AuthorizeRequestOcpp21Handler,
 ] satisfies ReadonlyArray<HandlerClass>;
 
-/**
- * The handler classes of the Wirelane module for the given config.
- *
- * The Authorize handlers are added only when EVDriver excludes Authorize
- * (`modules.evdriver.excludedRequests`), so Authorize is never answered by two modules.
- * `remoteAuthorization.enabled` without that exclusion has no effect and is logged.
- */
-export function selectWirelaneHandlerClasses(
-  config: SystemConfig,
-  logger: Logger<ILogObj>,
-): ReadonlyArray<HandlerClass> {
-  if (config.modules.evdriver?.excludedRequests?.includes(OCPP_CallAction.Authorize)) {
-    return [...WIRELANE_HANDLERS, ...WIRELANE_AUTHORIZE_HANDLERS];
-  }
-  if (config.modules.wirelane?.remoteAuthorization?.enabled) {
-    logger.warn(
-      'modules.wirelane.remoteAuthorization.enabled is set, but modules.evdriver.excludedRequests ' +
-        'does not contain Authorize: EVDriver keeps answering Authorize with local authorization.',
-    );
-  }
-  return WIRELANE_HANDLERS;
-}
+/** The upstream Authorize handlers removed from EVDriver's handler list. */
+const EVDRIVER_AUTHORIZE_HANDLERS = [
+  AuthorizeRequestOcpp16Handler,
+  AuthorizeRequestOcpp201Handler,
+  AuthorizeRequestOcpp21Handler,
+] satisfies ReadonlyArray<HandlerClass>;
+
+export const WIRELANE_ENDPOINTS = [
+  ActiveTransactionEndpoint,
+] satisfies ReadonlyArray<EndpointClass>;
 
 /**
- * Registers the WirelaneIntegration module's internal services as scoped dependencies.
+ * Registers the Wirelane module, its services and API, and replaces three upstream
+ * registrations. Must run after `buildContainer()` (`WirelaneCitrineOSServer`), so the later
+ * registration of a token wins:
  *
- * Also replaces the Transactions module's `transactionService` with
- * {@link WirelaneTransactionService}. That only works because the app calls this registrar
- * after `registerTransactionsServices` (`registerModuleServices` in
- * apps/ocpp-server/src/container.ts): the later registration of a token wins.
+ * - `transactionService` → {@link WirelaneTransactionService}
+ * - `webhookDispatcher` → {@link WirelaneWebhookDispatcher}
+ * - `evDriverHandlers` → the upstream list without the Authorize handlers, so Authorize is
+ *   answered by the Wirelane module alone
  */
 export function registerWirelaneServices(container: AwilixContainer): void {
+  const upstreamEvDriverHandlers = container.registrations.evDriverHandlers as
+    | Resolver<AbstractHandler[]>
+    | undefined;
+  if (!upstreamEvDriverHandlers) {
+    throw new Error('registerWirelaneServices: evDriverHandlers is not registered');
+  }
+
   container.register({
     stationDiscoveryNotifier: asClass(StationDiscoveryNotifier).scoped(),
     wirelaneAuthorizationClient: asClass(WirelaneAuthorizationClient).scoped(),
     transactionService: asClass(WirelaneTransactionService).scoped(),
-    wirelaneHandlers: asFunction(
-      (
-        cradle: HandlerResolverCradle & { config: SystemConfig; logger: Logger<ILogObj> },
-      ): AbstractHandler[] =>
-        buildHandlers(
-          cradle.moduleScope,
-          selectWirelaneHandlerClasses(cradle.config, cradle.logger),
-        ),
+    webhookDispatcher: asClass(WirelaneWebhookDispatcher).singleton(),
+    wirelaneHandlers: asFunction((cradle: HandlerResolverCradle): AbstractHandler[] =>
+      buildHandlers(cradle.moduleScope, WIRELANE_HANDLERS),
     ).scoped(),
+    upstreamEvDriverHandlers,
+    evDriverHandlers: asFunction(
+      (cradle: { upstreamEvDriverHandlers: AbstractHandler[] }): AbstractHandler[] =>
+        withoutAuthorizeHandlers(cradle.upstreamEvDriverHandlers),
+    ).scoped(),
+    wirelaneEndpoints: asFunction((cradle: EndpointResolverCradle): BuiltEndpoint[] =>
+      buildEndpoints(cradle.moduleScope, WIRELANE_ENDPOINTS),
+    ).scoped(),
+    wirelaneApi: asClass(WirelaneApi).scoped(),
+    wirelaneIntegrationModule: asClass(WirelaneIntegrationModule).scoped(),
   });
+}
+
+function withoutAuthorizeHandlers(handlers: AbstractHandler[]): AbstractHandler[] {
+  const remaining = handlers.filter(
+    (handler) =>
+      !EVDRIVER_AUTHORIZE_HANDLERS.some((handlerClass) => handler instanceof handlerClass),
+  );
+  // Fails the start when upstream changes EVDriver's Authorize handlers.
+  if (handlers.length - remaining.length !== EVDRIVER_AUTHORIZE_HANDLERS.length) {
+    throw new Error(
+      `EVDriver's handler list no longer contains exactly the ${EVDRIVER_AUTHORIZE_HANDLERS.length} ` +
+        'upstream Authorize handlers the Wirelane module takes over.',
+    );
+  }
+  return remaining;
 }

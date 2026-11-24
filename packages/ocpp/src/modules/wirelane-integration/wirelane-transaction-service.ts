@@ -1,17 +1,23 @@
 // SPDX-FileCopyrightText: 2026 Wirelane GmbH
 //
 // SPDX-License-Identifier: Apache-2.0
-import type { IMessageContext, OCPP2_request_types, OCPP2_response_types } from '@citrineos/base';
-import { IdTokenEnum, OCPP2_0_1, OCPPVersion } from '@citrineos/types';
-import { TransactionService } from '@modules/Transactions/src/module/TransactionService.js';
-import type { WirelaneAuthorizationClient } from './WirelaneAuthorizationClient.js';
+import type { IMessageContext } from '@citrineos/base';
+import {
+  IdTokenEnum,
+  OCPP2_0_1,
+  type OCPP2_request_types,
+  type OCPP2_response_types,
+  OCPPVersion,
+} from '@citrineos/types';
+import { TransactionService } from '@modules/transactions/transaction-service.js';
+import type { WirelaneAuthorizationClient } from './wirelane-authorization-client.js';
 
 type UpstreamDependencies = ConstructorParameters<typeof TransactionService>[0];
 
 /**
  * Replaces the Transactions module's `transactionService` (see `registerWirelaneServices`) so
  * the id token of an OCPP 2.0.1 TransactionEvent is authorized by ocpp-adapter when
- * `modules.wirelane.remoteAuthorization.enabled` is set.
+ * `wirelane.remoteAuthorization.enabled` is set.
  *
  * Only {@link TransactionService.authorizeOcpp201IdToken} is overridden. The delegated path
  * deliberately skips the upstream authorization-row lookup, the ConcurrentTx check, the location

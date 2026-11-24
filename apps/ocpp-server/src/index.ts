@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigLoader } from '@citrineos/base';
-import { CitrineOSServer } from '@citrineos/ocpp';
+import { WirelaneCitrineOSServer } from '@citrineos/ocpp';
 import { EventGroup } from '@citrineos/types';
 
 async function main() {
   const config = await ConfigLoader.loadConfig();
-  const server = new CitrineOSServer(process.env.APP_NAME?.toLowerCase() as EventGroup, config);
+  const server = new WirelaneCitrineOSServer(
+    process.env.APP_NAME?.toLowerCase() as EventGroup,
+    config,
+  );
   server.run().catch((error: any) => {
     console.error(error);
     process.exit(1);
