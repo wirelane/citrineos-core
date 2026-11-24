@@ -4,10 +4,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_TENANT_ID } from '@citrineos/base';
 import { OCPP2_0_1 } from '@citrineos/types';
-import { WirelaneTransactionService } from '@modules/WirelaneIntegration/src/module/WirelaneTransactionService.js';
-import { createTestContainer, getTestInstance } from '@test/testContainer.js';
-import { aMessageContext } from '../../Transactions/providers/MessageContextProvider.js';
-import { aTransactionEventRequest } from '../../Transactions/providers/TransactionProvider.js';
+import { WirelaneTransactionService } from '@modules/wirelane-integration/wirelane-transaction-service.js';
+import { createTestContainer, getTestInstance } from '@test/test-container.js';
+import { aMessageContext } from '../transactions/providers/message-context-provider.js';
+import { aTransactionEventRequest } from '../transactions/providers/transaction-provider.js';
 
 describe('WirelaneTransactionService', () => {
   const { container } = createTestContainer();
@@ -40,11 +40,12 @@ describe('WirelaneTransactionService', () => {
       authorize: vi.fn().mockResolvedValue({ status: 'Accepted' }),
     };
     service = getTestInstance(container, WirelaneTransactionService, {
-      transactionEventRepository: {} as any,
+      meterValueRepository: {} as any,
+      transactionRepository: {} as any,
       authorizationRepository: authorizationRepository as any,
-      locationRepository: {} as any,
+      evseRepository: {} as any,
+      connectorRepository: {} as any,
       reservationRepository: {} as any,
-      ocppMessageRepository: {} as any,
       realTimeAuthorizer: { authorize: vi.fn() } as any,
       authorizers: [],
       wirelaneAuthorizationClient: wirelaneAuthorizationClient as any,

@@ -4,8 +4,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_TENANT_ID } from '@citrineos/base';
 import type { SystemConfig } from '@citrineos/types';
-import { StationDiscoveryNotifier } from '@modules/WirelaneIntegration/src/module/StationDiscoveryNotifier.js';
-import { createTestContainer } from '@test/testContainer.js';
+import { StationDiscoveryNotifier } from '@modules/wirelane-integration/station-discovery-notifier.js';
+import { createTestContainer } from '@test/test-container.js';
 
 describe('StationDiscoveryNotifier', () => {
   const ADAPTER_BASE_URL = 'http://ocpp-adapter.internal';
@@ -30,13 +30,9 @@ describe('StationDiscoveryNotifier', () => {
 
   function createNotifier(overrides?: { adapterBaseUrl?: string }): StationDiscoveryNotifier {
     const config = {
-      modules: {
-        wirelane: {
-          ocppAdapterBaseUrl:
-            overrides && 'adapterBaseUrl' in overrides
-              ? overrides.adapterBaseUrl
-              : ADAPTER_BASE_URL,
-        },
+      wirelane: {
+        ocppAdapterBaseUrl:
+          overrides && 'adapterBaseUrl' in overrides ? overrides.adapterBaseUrl : ADAPTER_BASE_URL,
       },
     } as unknown as SystemConfig;
 

@@ -11,8 +11,8 @@ import {
   OCPP_CallAction,
   OCPPVersion,
 } from '@citrineos/types';
-import { WirelaneBootNotificationRequestOcpp16Handler } from '@handlers/index.js';
-import { createTestContainer } from '@test/testContainer.js';
+import { WirelaneBootNotificationRequestOcpp16Handler } from '@modules/wirelane-integration/handlers/wirelane-boot-notification-request-ocpp-16-handler.js';
+import { createTestContainer } from '@test/test-container.js';
 
 function makeMessage(
   payload: OCPP1_6.BootNotificationRequest,

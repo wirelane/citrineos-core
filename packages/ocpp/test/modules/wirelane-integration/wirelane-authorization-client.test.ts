@@ -7,8 +7,8 @@ import {
   maskIdToken,
   WirelaneAuthorizationClient,
   type WirelaneAuthorizationRequest,
-} from '@modules/WirelaneIntegration/src/module/WirelaneAuthorizationClient.js';
-import { createTestContainer, type MockLogger } from '@test/testContainer.js';
+} from '@modules/wirelane-integration/wirelane-authorization-client.js';
+import { createTestContainer, type MockLogger } from '@test/test-container.js';
 
 describe('WirelaneAuthorizationClient', () => {
   const ADAPTER_BASE_URL = 'http://ocpp-adapter.internal';
@@ -48,11 +48,9 @@ describe('WirelaneAuthorizationClient', () => {
 
   function createClient(wirelane?: Record<string, unknown>): WirelaneAuthorizationClient {
     const config = {
-      modules: {
-        wirelane: wirelane ?? {
-          ocppAdapterBaseUrl: `${ADAPTER_BASE_URL}/`,
-          remoteAuthorization: { enabled: true, timeoutMs: 1000 },
-        },
+      wirelane: wirelane ?? {
+        ocppAdapterBaseUrl: `${ADAPTER_BASE_URL}/`,
+        remoteAuthorization: { enabled: true, timeoutMs: 1000 },
       },
     } as unknown as SystemConfig;
     const container = createTestContainer();
@@ -241,7 +239,7 @@ describe('WirelaneAuthorizationClient', () => {
     expect(logged).toContain('04**********F7');
   });
 
-  it('reports the remoteAuthorization flag, defaulting to disabled', () => {
+  it('reports the remoteAuthorization flag, defaulting to enabled', () => {
     expect(createClient().isEnabled()).toBe(true);
     expect(
       createClient({
@@ -249,7 +247,7 @@ describe('WirelaneAuthorizationClient', () => {
         remoteAuthorization: { enabled: false },
       }).isEnabled(),
     ).toBe(false);
-    expect(createClient({ ocppAdapterBaseUrl: ADAPTER_BASE_URL }).isEnabled()).toBe(false);
+    expect(createClient({ ocppAdapterBaseUrl: ADAPTER_BASE_URL }).isEnabled()).toBe(true);
   });
 
   it('masks id tokens', () => {

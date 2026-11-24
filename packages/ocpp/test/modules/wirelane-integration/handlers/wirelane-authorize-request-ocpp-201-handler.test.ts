@@ -2,25 +2,24 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_TENANT_ID, type IMessage, type OCPP2_request_types } from '@citrineos/base';
+import { DEFAULT_TENANT_ID, type IMessage } from '@citrineos/base';
 import {
   EventGroup,
   MessageOrigin,
   MessageState,
   OCPP_CallAction,
+  type OCPP2_request_types,
   OCPPVersion,
 } from '@citrineos/types';
-import { AS_HANDLER_CLASS_METADATA } from '@interfaces/handlers/AsHandlerClass.js';
-import {
-  AuthorizeRequestOcpp201Handler,
-  WirelaneAuthorizeRequestOcpp201Handler,
-} from '@handlers/index.js';
+import { AS_HANDLER_CLASS_METADATA } from '@interfaces/handlers/as-handler-class.js';
+import { AuthorizeRequestOcpp201Handler } from '@handlers/index.js';
+import { WirelaneAuthorizeRequestOcpp201Handler } from '@modules/wirelane-integration/handlers/wirelane-authorize-request-ocpp-201-handler.js';
 import {
   createTestContainer,
   getTestInstance,
   makeMockOcppSender,
   type MockOcppSender,
-} from '@test/testContainer.js';
+} from '@test/test-container.js';
 
 function makeMessage(idToken: {
   idToken: string;
@@ -54,14 +53,14 @@ describe('WirelaneAuthorizeRequestOcpp201Handler', () => {
   function createHandler<T extends typeof AuthorizeRequestOcpp201Handler>(handlerClass: T) {
     return getTestInstance(
       container,
-      handlerClass as typeof WirelaneAuthorizeRequestOcpp201Handler,
+      handlerClass as unknown as typeof WirelaneAuthorizeRequestOcpp201Handler,
       {
         ocppSender: ocppSender as any,
         certificateAuthorityService: {} as any,
         authorizers: [],
         // The token is unknown to CitrineOS: upstream answers Unknown.
         authorizationRepository: authorizationRepository as any,
-        deviceModelRepository: { readAllByQuerystring: vi.fn().mockResolvedValue([]) } as any,
+        variableAttributeRepository: { readAllByQuerystring: vi.fn().mockResolvedValue([]) } as any,
         wirelaneAuthorizationClient: wirelaneAuthorizationClient as any,
       },
     );
