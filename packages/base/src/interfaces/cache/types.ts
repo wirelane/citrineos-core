@@ -10,8 +10,20 @@ export enum CacheNamespace {
   ChargingStation = 'cs',
   TenantPathMapping = 'tpm',
   Transactions = 'tx',
+  /**
+   * Payloads of the Calls the CSMS sent and is awaiting a response to, keyed by correlationId.
+   */
+  CallRequests = 'call_req',
   Connections = 'conn',
   Protocol = 'prtcl',
+  /**
+   * Cache boot status is used to keep track of the overall boot process for Rejected or Pending.
+   * When Accepting a boot, blacklist needs to be cleared if and only if there was a previously
+   * Rejected or Pending boot. When starting to configure charger, i.e. sending GetBaseReport or
+   * SetVariables, this should only be done if configuring is not still ongoing from a previous
+   * BootNotificationRequest. Cache boot status mediates this behavior.
+   */
+  BootStatus = 'boot_status',
   Other = 'other',
 }
 

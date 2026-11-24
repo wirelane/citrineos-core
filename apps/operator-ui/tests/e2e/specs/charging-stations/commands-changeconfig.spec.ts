@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { test, expect } from '../../fixtures';
-import { ChargingStationDetailPage } from '../../pages/charging-stations/detail.page';
-import { ModalHarness } from '../../pages/components/modal.po';
+import { ChargingStationDetailPage } from '../../pages/charging-stations/detail-page';
+import { ModalHarness } from '../../pages/components/modal-po';
 import {
   deleteLocation,
   deleteStation,
@@ -20,7 +20,7 @@ test.describe('charging-stations › Change Availability + Configuration', () =>
     everestStation,
   }) => {
     const detail = new ChargingStationDetailPage(page);
-    await detail.goto(everestStation.id);
+    await detail.goto(everestStation.ocppConnectionName);
 
     await detail.commandBar.openViaOtherCommands(/change availability/i);
     const modal = new ModalHarness(page, /change availability/i);
@@ -45,7 +45,7 @@ test.describe('charging-stations › Change Availability + Configuration', () =>
 
     try {
       const detail = new ChargingStationDetailPage(page);
-      await detail.goto(station.id);
+      await detail.goto(station.ocppConnectionName);
 
       await detail.commandBar.openViaOtherCommands(/change configuration/i);
       const modal = new ModalHarness(page, /change configuration/i);
@@ -63,7 +63,7 @@ test.describe('charging-stations › Change Availability + Configuration', () =>
     seededStation,
   }) => {
     const detail = new ChargingStationDetailPage(page);
-    await detail.goto(seededStation.id);
+    await detail.goto(seededStation.ocppConnectionName);
 
     await detail.commandBar.openViaOtherCommands(/change availability/i);
     const modal = new ModalHarness(page, /change availability/i);

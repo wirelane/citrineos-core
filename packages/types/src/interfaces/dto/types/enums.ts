@@ -105,6 +105,16 @@ export const ChargingStationParkingRestrictionSchema = z.enum([
   'Motorcycles',
 ]);
 
+// Operational status of a charging station.
+export const ChargingStationStatusEnumSchema = z.enum([
+  'AVAILABLE',
+  'CHARGING',
+  'CHARGING_SUSPENDED',
+  'RESERVED',
+  'UNAVAILABLE',
+  'FAULTED',
+]);
+
 export const ChargingStationSequenceTypeSchema = z.enum([
   'customerInformation',
   'getBaseReport',
@@ -343,7 +353,7 @@ export const LocationParkingEnumSchema = z.enum([
   'UndergroundGarage',
 ]);
 
-export const MessageFormatEnumSchema = z.enum(['ASCII', 'HTML', 'URI', 'UTF8']);
+export const MessageFormatEnumSchema = z.enum(['ASCII', 'HTML', 'URI', 'UTF8', 'QRCODE']);
 
 export const MonitorEnumSchema = z.enum([
   'UpperThreshold',
@@ -389,6 +399,38 @@ export const MeasurandEnumSchema = z.enum([
   'SoC',
   'Temperature',
   'Voltage',
+  // OCPP 2.1 measurands
+  'Current.Export.Offered',
+  'Current.Export.Minimum',
+  'Current.Import.Offered',
+  'Current.Import.Minimum',
+  'Display.PresentSOC',
+  'Display.MinimumSOC',
+  'Display.TargetSOC',
+  'Display.MaximumSOC',
+  'Display.RemainingTimeToMinimumSOC',
+  'Display.RemainingTimeToTargetSOC',
+  'Display.RemainingTimeToMaximumSOC',
+  'Display.ChargingComplete',
+  'Display.BatteryEnergyCapacity',
+  'Display.InletHot',
+  'Energy.Active.Import.CableLoss',
+  'Energy.Active.Import.LocalGeneration.Register',
+  'Energy.Active.Setpoint.Interval',
+  'EnergyRequest.Target',
+  'EnergyRequest.Minimum',
+  'EnergyRequest.Maximum',
+  'EnergyRequest.Minimum.V2X',
+  'EnergyRequest.Maximum.V2X',
+  'EnergyRequest.Bulk',
+  'Power.Active.Setpoint',
+  'Power.Active.Residual',
+  'Power.Export.Minimum',
+  'Power.Export.Offered',
+  'Power.Import.Offered',
+  'Power.Import.Minimum',
+  'Voltage.Minimum',
+  'Voltage.Maximum',
 ]);
 
 export const NotifyEVChargingNeedsStatusEnumSchema = z.enum([
@@ -465,6 +507,7 @@ export const ReasonEnumSchema = z.enum([
   'StoppedByEV',
   'TimeLimitReached',
   'Timeout',
+  'ReqEnergyTransferRejected',
 ]);
 
 export const RecurrencyKindEnumSchema = z.enum(['Daily', 'Weekly']);
@@ -585,6 +628,7 @@ export const ChargingStateEnum = ChargingStateEnumSchema.enum;
 export const ChargingStationCapabilityEnum = ChargingStationCapabilitySchema.enum;
 export const ChargingStationParkingRestrictionEnum = ChargingStationParkingRestrictionSchema.enum;
 export const ChargingStationSequenceTypeEnum = ChargingStationSequenceTypeSchema.enum;
+export const ChargingStationStatusEnum = ChargingStationStatusEnumSchema.enum;
 export const ClearMessageStatusEnum = ClearMessageStatusEnumSchema.enum;
 export const ConnectorErrorCodeEnum = ConnectorErrorCodeEnumSchema.enum;
 export const ConnectorFormatEnum = ConnectorFormatEnumSchema.enum;
@@ -673,6 +717,7 @@ export type ChargingStationParkingRestrictionEnumType = z.infer<
 >;
 export type ClearMessageStatusEnumType = z.infer<typeof ClearMessageStatusEnumSchema>;
 export type ChargingStationSequenceTypeEnumType = z.infer<typeof ChargingStationSequenceTypeSchema>;
+export type ChargingStationStatusEnumType = z.infer<typeof ChargingStationStatusEnumSchema>;
 export type ConnectorErrorCodeEnumType = z.infer<typeof ConnectorErrorCodeEnumSchema>;
 export type ConnectorFormatEnumType = z.infer<typeof ConnectorFormatEnumSchema>;
 export type ConnectorPowerTypeEnumType = z.infer<typeof ConnectorPowerTypeEnumSchema>;

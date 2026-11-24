@@ -10,11 +10,17 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -b tsconfig.json",
+    "build": "tsc -b tsconfig.src.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "typecheck": "tsc -b tsconfig.json --pretty",
+    "typecheck": "tsc -b tsconfig.src.json --pretty",
+    "typecheck:all": "tsc -p tsconfig.json --noEmit --pretty",
     "test": "vitest run",
+    "test:live": "vitest run -c vitest.live.config.ts --dir test-live/pr",
+    "test:everest": "vitest run -c vitest.live.config.ts --dir test-live/everest",
+    "test:e2e": "playwright test --project=dashboard",
+    "test:e2e:live": "playwright test --project=dashboard-live",
+    "test:e2e:everest": "playwright test --project=dashboard-everest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
@@ -22,18 +28,19 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@citrineos/base": "workspace:*",
-    "@citrineos/ocpi-base": "workspace:*",
+    "@citrineos/ocpi": "workspace:*",
     "fastify": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",
-    "@types/node": "^25.3.3",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "eslint-config-prettier": "catalog:",
     "eslint-plugin-prettier": "catalog:",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.0",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
     "typescript-eslint": "catalog:"
   },
   "engines": {

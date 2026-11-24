@@ -12,7 +12,7 @@ import {
   MessageState,
 } from '@citrineos/types';
 import { OcppError } from '@ocpp/rpc/message.js';
-import type { IMessage } from '@interfaces/messages/Message.js';
+import type { IMessage } from '@interfaces/messages/message.js';
 
 export class RequestBuilder {
   static buildCall(
@@ -52,6 +52,7 @@ export class RequestBuilder {
     origin: MessageOrigin,
     protocol: OCPPVersionType,
     timestamp: Date = new Date(),
+    request?: OcppRequest,
   ): IMessage<OcppResponse> {
     return {
       origin: origin,
@@ -66,6 +67,7 @@ export class RequestBuilder {
       state: MessageState.Response,
       protocol,
       payload,
+      request,
     };
   }
 

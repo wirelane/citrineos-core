@@ -10,8 +10,10 @@ import {
   OCPP2_0_1,
   type TransactionDto,
   TransactionProps,
+  ChargingStationProps,
 } from '@citrineos/types';
-import { MenuSection } from '@lib/client/components/main-menu/main.menu';
+import { MenuSection } from '@lib/client/components/main-menu/main-menu';
+import { chargingStationPath } from '@lib/utils/resource-paths';
 import GenericTag from '@lib/client/components/tag';
 import { TimestampDisplay } from '@lib/client/components/timestamp-display';
 import { CircleCheck, CircleX, Eye } from 'lucide-react';
@@ -19,11 +21,11 @@ import { buttonIconSize } from '@lib/client/styles/icon';
 import type { BaseRecord, CrudFilters } from '@refinedev/core';
 import { TableCellLink } from '@lib/client/components/table-cell-link';
 import type { CellContext } from '@tanstack/react-table';
-import type { ColumnConfiguration } from '@lib/utils/column.configuration';
-import { TransactionClass } from '@lib/cls/transaction.dto';
+import type { ColumnConfiguration } from '@lib/utils/column-configuration';
+import { TransactionClass } from '@lib/cls/transaction-dto';
 import { EMPTY_VALUE } from '@lib/utils/consts';
 
-export const transactionStationIdField = 'ocppConnectionName';
+export const transactionStationIdField = 'ChargingStation.ocppConnectionName';
 export const transactionChargingStationLocationNameField = 'ChargingStation.Location.name';
 export const transactionAuthorizationIdTokenField = 'authorization.idToken';
 
@@ -72,13 +74,17 @@ export const getTransactionsColumns = (
       visible: true,
       sortable: true,
       cellRender: ({ row }: CellContext<TransactionClass, unknown>) => {
-        const chargingStation = row.original.chargingStation;
+        const chargingStation = row.original.station;
         return (
           <div className="flex items-center gap-2">
-            <TableCellLink
-              path={`/${MenuSection.CHARGING_STATIONS}/${chargingStation?.id}`}
-              value={chargingStation?.ocppConnectionName ?? EMPTY_VALUE}
-            />
+            {chargingStation?.ocppConnectionName ? (
+              <TableCellLink
+                path={chargingStationPath(chargingStation.ocppConnectionName)}
+                value={chargingStation.ocppConnectionName}
+              />
+            ) : (
+              <span>{EMPTY_VALUE}</span>
+            )}
             {onPreview && chargingStation && (
               <button
                 type="button"
@@ -103,8 +109,8 @@ export const getTransactionsColumns = (
       sortable: true,
       cellRender: ({ row }: CellContext<BaseRecord, unknown>) => (
         <TableCellLink
-          path={`/${MenuSection.LOCATIONS}/${row.original.chargingStation?.location?.id}`}
-          value={row.original.chargingStation?.location?.name ?? EMPTY_VALUE}
+          path={`/${MenuSection.LOCATIONS}/${row.original.station?.location?.id}`}
+          value={row.original.station?.location?.name ?? EMPTY_VALUE}
         />
       ),
     },
@@ -130,7 +136,7 @@ export const getTransactionsColumns = (
       visible: true,
       sortable: true,
       cellRender: ({ row }: CellContext<TransactionClass, unknown>) =>
-        row.original.totalKwh ? (
+        row.original.totalKwh != null ? (
           <span>{row.original.totalKwh.toFixed(2)} kWh</span>
         ) : (
           <span>{EMPTY_VALUE}</span>
@@ -217,7 +223,7 @@ export const getTransactionsFilters = (value: string): CrudFilters => {
           value,
         },
         {
-          field: TransactionProps.ocppConnectionName,
+          field: `ChargingStation.${ChargingStationProps.ocppConnectionName}`,
           operator: 'contains',
           value,
         },
