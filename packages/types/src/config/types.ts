@@ -448,6 +448,27 @@ export const configSchema = z.object({
     })
     .prefault({}),
 
+  // Wirelane: integration with ocpp-adapter (packages/ocpp/src/modules/wirelane-integration).
+  wirelane: z
+    .object({
+      /** Base URL of ocpp-adapter: BootNotification discovery and remote authorization. */
+      ocppAdapterBaseUrl: z.string().optional(),
+      /** Callback URL ocpp-adapter registers as subscription (informational, not read). */
+      ocppAdapterWebhookUrl: z.string().optional(),
+      /**
+       * Delegates OCPP 2.0.1 Authorize and token-bearing TransactionEvent authorization to
+       * ocpp-adapter (`POST {ocppAdapterBaseUrl}/internal/authorizations`).
+       */
+      remoteAuthorization: z
+        .object({
+          enabled: z.boolean().default(true),
+          // below timeouts.maxCallLengthSeconds, or the answer never reaches the station
+          timeoutMs: z.number().int().min(1).default(18000),
+        })
+        .prefault({}),
+    })
+    .prefault({}),
+
   californiaPricing: z
     .object({
       enabled: z.boolean().default(false),
